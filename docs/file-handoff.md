@@ -1,45 +1,37 @@
-# File Handoff Contract
+# V2 File Handoff Contract
 
-The harness is file-based. Chat output is not the source of truth.
-
-## Required Files
+Largentic V2 uses the run directory as the durable handoff boundary:
 
 ```text
-harness/plans/plan.md
-harness/reports/implementation.md
-harness/reports/test-results.md
-harness/reports/review.md
-harness/artifacts/latest-diff.patch
-harness/state/context.json
+.largentic/runs/<run-id>/
 ```
 
-## Flow
+Each active run contains:
 
 ```text
-planner -> plan.md
-implementer -> implementation.md + latest-diff.patch
-tester -> test-results.md
-reviewer -> review.md
+manifest.json
+state.json
+events.jsonl
+plan.md
+implementation.md
+test-results.md
+review.md
+attempts/<attempt>/
 ```
 
-If approved, the workflow ends.
+The workflow is:
 
-If rejected, `review.md` becomes input for the implementer.
+```text
+planner     -> plan.md
+implementer -> implementation.md
+tester      -> test-results.md
+reviewer    -> review.md
+```
 
-## State File
+The engine writes the final artifact at the run root and keeps attempt-specific stage result JSON and Markdown files under `attempts/<attempt>/`. Chat output is not the source of truth.
 
-`harness/state/context.json` should stay concise.
+## State
 
-Good entries:
-- current task
-- attempt number
-- known failure summary
-- decisions
-- verification status
+Keep state and reports concise and factual. Do not place secrets, full command logs, stack traces, or large diffs in `state.json`. Store raw output in an ignored project-local location when it is needed for diagnosis.
 
-Bad entries:
-- full PHPUnit output
-- stack traces
-- secrets
-- huge diffs
-- client-sensitive logs
+The legacy V1 handoff contract under `harness/` is separate from this V2 contract.

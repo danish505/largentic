@@ -1,88 +1,43 @@
-# Largentic
+# Largentic V2
 
-A file-based multi-agent harness for using Codex with Laravel projects.
-
-The harness uses a structured workflow:
+A TypeScript CLI that orchestrates a durable Codex workflow for software-engineering tasks:
 
 ```text
 planner -> implementer -> tester -> reviewer
 ```
 
-Agents transfer work through files such as `harness/plans/plan.md`, `harness/reports/implementation.md`, `harness/reports/test-results.md`, and `harness/reports/review.md`. This keeps the workflow durable and repeatable instead of relying only on chat history.
-
-## Why use this?
-
-This project helps you:
-
-- Split coding work into clear agent responsibilities.
-- Keep implementation changes small and reviewable.
-- Make Codex hand off work through files.
-- Run targeted Laravel/PHPUnit verification.
-- Keep browser checks separate through Playwright and Valet.
-- Avoid noisy route/report tests when unit tests are more appropriate.
-- Build toward reliable retry loops.
+Largentic V2 stores configuration in `.largentic/`, creates an isolated run directory for every task, and persists each stage handoff as a Markdown artifact. This makes workflows resumable, inspectable, and independent from the legacy V1 `harness/` directory.
 
 ## Requirements
 
-- Codex CLI
-- PHP and Composer
-- Laravel project, commonly Valet-based
-- Node.js and npm if using Playwright
+- Node.js 20 or newer
+- npm
 - Git
-
-## Suggested Repository Structure
-
-```text
-codex-largentic/
-├── .codex/
-│   ├── config.toml
-│   ├── global-rules.md
-│   └── agents/
-│       ├── planner.toml
-│       ├── implementer.toml
-│       ├── tester.toml
-│       └── reviewer.toml
-├── .largentic/
-│   ├── config.yaml
-│   ├── task.md
-│   └── runs/
-│       └── <run-id>/
-│           ├── plan.md
-│           ├── implementation.md
-│           ├── test-results.md
-│           ├── review.md
-│           ├── state.json
-│           └── events.jsonl
-├── docs/
-│   ├── architecture.md
-│   ├── design-patterns.md
-│   ├── file-handoff.md
-│   └── codex-setup.md
-├── .gitignore
-├── LICENSE
-└── README.md
-```
+- Codex CLI for production runs
+- PHP and Composer when working on Laravel projects
 
 ## Installation
 
-Install the harness CLI globally:
+From the Largentic repository:
 
 ```bash
-cd /path/to/largentic
-npm install && npm run build && npm link
+npm install
+npm run build
+npm link
 ```
 
-In your Laravel project root, run:
+From a project where Largentic is installed:
 
 ```bash
 lh init
 ```
 
-This creates:
+`lh init` creates:
 
 ```text
 .largentic/config.yaml
 .largentic/task.md
+.largentic/runs/
 .codex/config.toml
 .codex/global-rules.md
 .codex/agents/planner.toml
@@ -91,228 +46,126 @@ This creates:
 .codex/agents/reviewer.toml
 ```
 
-Edit `.largentic/config.yaml` and `.largentic/task.md` to match your project. Customize `.codex/global-rules.md` and `.codex/agents/*.toml` per project to adjust agent behavior, coding standards, and handoff formats.
+Edit `.largentic/config.yaml` and `.largentic/task.md` for the project. The generated `.codex/` files define the native Codex agents used by the V2 workflow.
 
-## Playwright
+## Running a task
 
-If your project uses Playwright, install it in the project root as usual:
-
-```bash
-npm install --save-dev @playwright/test
-npx playwright install
-```
-
-## Add this to AGENTS.md file
-```text 
-## Harness Execution Protocol
-
-When the Captain asks to run the harness:
-
-1. Read `.codex/global-rules.md`.
-2. Use the planner agent to write `.largentic/runs/<run-id>/plan.md`.
-3. Use the implementer agent to read the plan and implement the patch.
-4. Use the tester agent to write `.largentic/runs/<run-id>/test-results.md`.
-5. Use the reviewer agent to write `.largentic/runs/<run-id>/review.md`.
-6. If the tester fails, repeat implementer -> tester.
-7. If the review fails, repeat implementer → tester → reviewer.
-8. Use files as the source of truth, not chat output.
-```
-
-## Running the Harness
-
-From your Laravel project root:
+Run a task inline:
 
 ```bash
 lh run "Add rate limiting to the login endpoint"
 ```
 
-Or create `.largentic/task.md` and run:
+Or edit the task file and run it without an argument:
 
 ```bash
 lh run
 ```
 
-### Skipping to Implementation with a Predefined Plan
+Use `lh doctor` to check Node, Git, Codex CLI, and project configuration before running a task.
 
-If you already have a plan file and want to jump directly to the implementation stage:
+### Predefined plans
 
-```bash
-lh run "Add rate limiting to the login endpoint" --plan-file .largentic/exports/plan-XXXX.md
-```
-
-The plan file **must** exist and be located inside the configured plan export directory (by default `.largentic/exports`).
-
-## Workflow
-
-```text
-planner -> .largentic/runs/<run-id>/plan.md
-implementer -> .largentic/runs/<run-id>/implementation.md
-tester -> .largentic/runs/<run-id>/test-results.md
-reviewer -> .largentic/runs/<run-id>/review.md
-```
-
-If the reviewer rejects the patch:
-
-```text
-review.md -> implementer -> tester -> reviewer
-```
-
-## Tester Philosophy
-
-The tester agent creates targeted unit tests for changed fields, rules, calculations, services, model methods, validation logic, and edge cases.
-
-By default, it avoids:
-
-- route tests
-- report tests
-- generic page-load tests
-- broad end-to-end tests
-- browser-only tests
-
-## Documentation
-
-Read:
-
-- `docs/architecture.md`
-- `docs/design-patterns.md`
-- `docs/file-handoff.md`
-- `docs/codex-setup.md`
-
-## Safety
-
-Do not commit real local state, logs, diffs, secrets, client names, or `.env` files. This repo commits examples only.
-
----
-
-## V2 (Alpha) — CLI Orchestrator
-
-> **Status:** `2.0.0-alpha` — Sprint 1 vertical slice complete. TypeScript CLI with durable state machine and automated workflow.
-
-### Quick start
+An exported plan can be supplied to skip the planning stage:
 
 ```bash
-# In your project directory
-node /path/to/largentic/dist/cli/index.js init
-node /path/to/largentic/dist/cli/index.js doctor
-node /path/to/largentic/dist/cli/index.js run "Add rate limiting to the login endpoint" --auto-approve
+lh run "Add rate limiting to the login endpoint" \
+  --plan-file .largentic/exports/plan-<run-id>.md
 ```
 
-Or install globally via `npm link` inside `largentic/`:
+The plan file must be inside `workflow.plan_export_directory`, which defaults to `.largentic/exports`.
 
-```bash
-cd /path/to/largentic
-npm install && npm run build && npm link
-
-# Then in any project:
-lh init
-lh doctor
-lh run "Your task description"
-```
-
-### CLI commands
+## CLI commands
 
 | Command | Description |
 |---------|-------------|
-| `lh init` | Scaffold `.largentic/config.yaml` and `task.md` with auto-detected profile |
-| `lh doctor` | Check Node, Git, Codex CLI, and config validity |
-| `lh config validate` | Validate config file against JSON Schema |
+| `lh init` | Create V2 project configuration and Codex agent files |
+| `lh doctor` | Check environment prerequisites and configuration |
+| `lh config validate` | Validate `.largentic/config.yaml` |
 | `lh config show` | Print merged configuration |
-| `lh run "<task>"` | Execute the full planner→implementer→tester→reviewer workflow |
-| `lh run` | Same as above, reading the task from `.largentic/task.md` |
-| `lh status <run-id>` | Show current state of a run |
-| `lh inspect <run-id>` | Print manifest, state, and full event log |
+| `lh run [task]` | Execute the planner-to-reviewer workflow |
+| `lh status <run-id>` | Show the current state of a run |
+| `lh inspect <run-id>` | Print the manifest, state, and event log |
 | `lh cancel <run-id>` | Cancel a running or paused run |
 | `lh report <run-id>` | Print a consolidated Markdown report |
 
-### Providing a task
+## V2 run files
 
-You can provide the task inline or via a file.
+Each run is stored under `.largentic/runs/<run-id>/`:
 
-**Inline (one-off tasks):**
-```bash
-lh run "Add rate limiting to the login endpoint"
+```text
+.largentic/
+├── config.yaml
+├── task.md
+├── exports/
+└── runs/
+    └── <run-id>/
+        ├── manifest.json
+        ├── state.json
+        ├── events.jsonl
+        ├── plan.md
+        ├── implementation.md
+        ├── test-results.md
+        ├── review.md
+        └── attempts/
+            └── <attempt>/
 ```
 
-**File-based (`.largentic/task.md`):**
+The run-root Markdown files are the current handoff artifacts. Attempt directories preserve stage results from individual retries. State writes are atomic, and the event log records stage transitions, approvals, retries, and termination.
 
-If you run `lh run` without an argument, the CLI reads your task from `.largentic/task.md`. This file is created automatically by `lh init`.
+The workflow is:
 
-```bash
-# Edit the task file
-nano .largentic/task.md
-
-# Then run without an inline prompt
-lh run
+```text
+planner     -> plan.md
+implementer -> implementation.md
+tester      -> test-results.md
+reviewer    -> review.md
 ```
 
-The inline argument always takes priority — if you pass a prompt and the file exists, the file is ignored.
+Testing failures retry implementation and testing up to `workflow.max_attempts`. Review rejections retry implementation, testing, and review up to the same limit. Plan approval and review approval are controlled by configuration.
 
-### How it works
+## Configuration
 
-```
-lh run "task"
-    │
-    ▼
-[planner]  → .largentic/runs/<run-id>/plan.md  → human approval (if required)
-    │                      │
-    │                      ▼
-    │            export plan → .largentic/exports/plan-<run-id>.md
-    │                      │
-    ▼                      ▼
-[implementer] → .largentic/runs/<run-id>/implementation.md
-    │
-    ▼
-[tester]  → .largentic/runs/<run-id>/test-results.md
-    │  ↑ retry on failure (up to max_attempts)
-    ▼
-[reviewer] → .largentic/runs/<run-id>/review.md
-    │  ↑ retry on rejection (up to max_attempts)
-    ▼
- APPROVED ✅  (or FAILED / CANCELLED)
-```
-
-### Exporting the plan
-
-When `workflow.plan_approval` is `required`, the plan approval prompt offers:
-
-- `[a]pprove` — continue to implementation
-- `[r]eject` — cancel the run
-- `[u]pdate` — provide additional details or changes to re-run the planner agent and revise the plan
-- `[e]xport` — save the plan as Markdown and return to the prompt
-- `[c]ancel` — cancel the run
-
-Exporting writes the generated plan to `.largentic/exports/plan-<run-id>.md` by default. It does **not** approve the plan or start implementation; after exporting you remain at the approval prompt to make a final decision.
-
-You can change the export directory in `.largentic/config.yaml`:
+The default configuration is generated by `lh init` and validated against `schemas/config.schema.json`.
 
 ```yaml
+version: 2
+profile: laravel
+
 workflow:
-  plan_export_directory: docs/plans
+  max_attempts: 3
+  plan_approval: required
+  review_approval: automatic
+  plan_export_directory: .largentic/exports
 ```
 
-Relative paths resolve from the project working directory; absolute paths are used as supplied.
+When the effective provider is `codex`, the CLI requires these readable files:
 
-The harness uses the native Codex agents registered in `.codex/agents/*.toml`. Each stage prompt tells the selected agent its run ID, attempt, run directory, required input artifacts, and the path to `.codex/global-rules.md`. Every state transition is written atomically to `.largentic/runs/<run-id>/state.json` and appended to `events.jsonl` — making runs fully inspectable and resumable.
+```text
+.codex/config.toml
+.codex/global-rules.md
+.codex/agents/planner.toml
+.codex/agents/implementer.toml
+.codex/agents/tester.toml
+.codex/agents/reviewer.toml
+```
 
-When the effective provider is `codex`, `lh run` verifies that `.codex/config.toml`, `.codex/global-rules.md`, and all four agent TOMLs exist and are readable before starting. Missing files produce an actionable error suggesting `lh init`.
-
-### Running the tests
+## Development
 
 ```bash
-cd largentic
 npm install
 npm run build
-npm test           # 72 tests, all passing
+npm test
+npm run typecheck
 ```
 
-### V2 architecture
+The V2 implementation is in `src/`, schemas are in `schemas/`, initialization templates are in `templates/`, and automated tests are in `tests/`.
 
-See `docs/architecture/` for the Architecture Decision Records:
-- `ADR-001-typescript.md` — Why TypeScript + Node.js
-- `ADR-002-state-storage.md` — JSON file-based state with atomic writes
-- `ADR-003-provider-strategy.md` — Codex-first with adapter interface
+Architecture decision records are in `docs/architecture/`. The phased roadmap is in `largentic-V2-Implementation-Plan.md`.
 
-See `largentic-V2-Implementation-Plan.md` for the full phased roadmap.
+## Legacy V1
+
+The legacy V1 files live under `harness/` and are not used by the V2 CLI. V2 uses `.largentic/` run state and its own TypeScript engine. The two workflows should be treated as independent during migration and cleanup.
 
 ## License
 

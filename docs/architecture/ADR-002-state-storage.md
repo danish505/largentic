@@ -18,14 +18,14 @@ Alternatives considered:
 
 ## Decision
 
-Store all run state as **JSON files** in `.laravel-harness/runs/<run-id>/`.
+Store all run state as **JSON files** in `.largentic/runs/<run-id>/`.
 
 Atomic write strategy: write to `<file>.tmp`, then `rename()` (atomic on POSIX filesystems).
 
 Run locking: a `.lock` file in the run directory prevents two processes mutating the same run.
 
 ```
-.laravel-harness/
+.largentic/
 ├── config.yaml
 └── runs/
     └── <run-id>/

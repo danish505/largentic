@@ -1,50 +1,30 @@
-# Architecture
+# V2 Architecture
 
-Codex Laravel Harness is a file-based multi-agent workflow for Laravel projects.
-
-## Core Flow
+Largentic V2 is a TypeScript CLI that coordinates a durable four-stage workflow:
 
 ```text
 planner -> implementer -> tester -> reviewer
 ```
 
-## Responsibilities
+The CLI creates a run under `.largentic/runs/<run-id>/`. The run directory is the source of truth for stage handoffs, state, and audit events.
 
-### Planner
+## Stage artifacts
 
-Creates `harness/plans/plan.md`.
+- Planner writes `plan.md`.
+- Implementer reads `plan.md` and returns `implementation.md`.
+- Tester reads the plan and implementation and returns `test-results.md`.
+- Reviewer reads all preceding artifacts and returns `review.md`.
 
-### Implementer
+The engine writes each artifact at the run root and preserves attempt-specific results under `attempts/<attempt>/`.
 
-Reads `plan.md`, modifies code, and writes:
+## State and events
 
-```text
-harness/reports/implementation.md
-harness/artifacts/latest-diff.patch
-```
+`state.json` stores the current status, attempt number, timestamps, and failure information. Updates are written atomically. `events.jsonl` is append-only and records stage starts, completions, failures, approvals, retries, and termination.
 
-### Tester
+## Providers
 
-Reads the plan, implementation report, and diff. Creates focused tests when needed, preferably unit tests for changed fields/rules/logic. Writes:
+The engine depends on the `AgentProvider` interface. V2 ships with a Codex CLI provider for production use and a deterministic fake provider for tests.
 
-```text
-harness/reports/test-results.md
-```
+## Project configuration
 
-### Reviewer
-
-Reads all previous outputs and writes:
-
-```text
-harness/reports/review.md
-```
-
-If rejected, the review file becomes input for the implementer retry.
-
-## State
-
-Use `harness/state/context.json` for concise memory. Do not store long raw logs or secrets in state.
-
-## Logs and Artifacts
-
-Use `harness/logs/` and `harness/artifacts/` for raw output, diffs, and temporary files.
+`lh init` creates `.largentic/config.yaml` and the required native Codex files under `.codex/`. Initialization templates are stored in the repository's `templates/` directory.

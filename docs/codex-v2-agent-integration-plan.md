@@ -14,7 +14,7 @@ runs `codex exec` with `--cd <project-root>`, but does not load
 `.codex/config.toml`, select a named agent, or inject `.codex/global-rules.md`.
 
 The current role TOMLs also reference V1 `harness/` paths. V2 persists
-artifacts below `.laravel-harness/runs/<run-id>/`.
+artifacts below `.largentic/runs/<run-id>/`.
 
 ## Decisions
 
@@ -60,7 +60,7 @@ artifacts below `.laravel-harness/runs/<run-id>/`.
    or project-relative global-rules path in the conductor prompt as a
    redundant enforcement point.
 
-4. Replace V1 handoff paths in role instructions.
+4. Use V2 run-directory paths in role instructions.
 
    Update the TOML role guidance to use the V2 run directory supplied in each
    stage prompt:
@@ -138,8 +138,8 @@ artifacts below `.laravel-harness/runs/<run-id>/`.
 - [ ] A V2 testing stage uses the registered `tester` agent.
 - [ ] A V2 review stage uses the registered `reviewer` agent.
 - [ ] Every role is instructed to read and follow `.codex/global-rules.md`.
-- [ ] Role instructions reference V2 per-run artifacts and not V1
-  `harness/` handoff paths.
+- [ ] Role instructions reference V2 per-run artifacts under
+  `.largentic/runs/<run-id>/`.
 - [ ] Missing project-native-agent configuration produces an actionable error
   before Codex starts.
 - [ ] Fake-provider runs and existing workflow retry behavior remain intact.
