@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { HarnessConfig } from '../types.js';
 import { HARNESS_DIR_NAME } from '../constants.js';
-import { ProfileRegistry } from '../profiles/registry.js';
+import { createProjectProfileRegistry } from '../profiles/registry.js';
 
 const CONFIG_DEFAULTS: HarnessConfig = {
   version: 2,
@@ -88,7 +88,7 @@ export function loadConfig(configPath: string): ConfigLoadResult {
     try {
       // Profile IDs are intentionally validated separately from the config schema so
       // a future local registry can participate without a config schema release.
-      new ProfileRegistry(undefined, path.dirname(path.dirname(configPath))).resolve(withEnvironment.profile);
+      createProjectProfileRegistry(path.dirname(path.dirname(configPath))).resolve(withEnvironment.profile);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       errors.push(`  /profile: ${message}`);

@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as crypto from 'crypto';
 import type {
   AgentProvider,
   ApprovalDecision,
@@ -37,8 +36,6 @@ export interface WorkflowEngineOptions {
   /** Optional initial plan text to skip planning stage. */
   initialPlan?: string;
 }
-
-const STAGE_ORDER: Stage[] = ['planning', 'implementing', 'testing', 'reviewing'];
 
 const STAGE_TO_ARTIFACT: Record<Stage, string> = {
   planning:     'plan.md',

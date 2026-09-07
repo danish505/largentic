@@ -5,7 +5,7 @@ import { loadConfig, findConfigPath } from '../../config/loader.js';
 import { isCodexCliAvailable } from '../../providers/codex-cli.js';
 import { HARNESS_DIR_NAME, HARNESS_NAME_WITH_VERSION } from '../../constants.js';
 import { resolveProfileCommands } from '../../profiles/command-resolver.js';
-import { ProfileRegistry } from '../../profiles/registry.js';
+import { createProjectProfileRegistry } from '../../profiles/registry.js';
 
 interface Check {
   name: string;
@@ -69,7 +69,7 @@ export function doctorCommand(cwd: string): void {
       fix: valid ? undefined : `Edit ${HARNESS_DIR_NAME}/config.yaml and fix the reported errors.`,
     });
     if (valid) {
-      const profile = new ProfileRegistry(undefined, cwd).resolve(loadConfig(configPath).config.profile);
+      const profile = createProjectProfileRegistry(cwd).resolve(loadConfig(configPath).config.profile);
       const commands = resolveProfileCommands(profile, cwd);
       checks.push({ name: 'Active profile', pass: true, message: `${profile.id} (${profile.source}, ${profile.contentHash.slice(0, 12)})` });
       checks.push({ name: 'Resolved test command', pass: true, message: commands.test ?? 'not configured' });

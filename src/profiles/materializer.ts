@@ -2,10 +2,10 @@ import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { HARNESS_DIR_NAME } from '../constants.js';
-import type { AgentRole, EffectiveProfile } from './types.js';
+import { AGENT_ROLES, type AgentRole, type EffectiveProfile } from './types.js';
 
 const MANIFEST_VERSION = 1;
-const ROLES: AgentRole[] = ['planner', 'implementer', 'tester', 'reviewer'];
+type MaterializationMode = 'apply' | 'refresh';
 
 export interface GeneratedFilesManifest {
   schema_version: 1;
@@ -30,7 +30,7 @@ export function renderCodexFiles(profile: EffectiveProfile): Record<string, stri
     '.codex/config.toml': renderCodexConfig(),
     '.codex/global-rules.md': renderGlobalRules(profile),
   };
-  for (const role of ROLES) {
+  for (const role of AGENT_ROLES) {
     files[`.codex/agents/${role}.toml`] = renderAgent(role, profile);
   }
   return files;
@@ -39,29 +39,18 @@ export function renderCodexFiles(profile: EffectiveProfile): Record<string, stri
 export function previewCodexMaterialization(
   cwd: string,
   profile: EffectiveProfile,
-  mode: 'apply' | 'refresh' = 'apply'
+  mode: MaterializationMode = 'apply'
 ): MaterializationResult {
   const existing = readGeneratedFilesManifest(cwd);
   const files = renderCodexFiles(profile);
-  const changes = Object.entries(files).map(([relativePath, content]) => {
-    const target = path.join(cwd, relativePath);
-    if (!fs.existsSync(target)) {
-      return mode === 'refresh'
-        ? { path: relativePath, action: 'conflict' as const, reason: 'managed file is missing' }
-        : { path: relativePath, action: 'create' as const };
-    }
-    if (fs.readFileSync(target, 'utf8') === content) return { path: relativePath, action: 'unchanged' as const };
-    const recorded = existing?.files[relativePath];
-    if (recorded && hashFile(target) === recorded.content_hash) return { path: relativePath, action: 'update' as const };
-    return { path: relativePath, action: 'conflict' as const, reason: recorded ? 'file was changed outside Largentic' : 'file is not managed by Largentic' };
-  });
+  const changes = Object.entries(files).map(([relativePath, content]) => materializationChange(cwd, relativePath, content, existing, mode));
   return { changes, conflicts: changes.filter((change) => change.action === 'conflict') };
 }
 
 export function applyCodexMaterialization(
   cwd: string,
   profile: EffectiveProfile,
-  options: { force?: boolean; mode?: 'apply' | 'refresh' } = {}
+  options: { force?: boolean; mode?: MaterializationMode } = {}
 ): MaterializationResult {
   const mode = options.mode ?? 'apply';
   const preview = previewCodexMaterialization(cwd, profile, mode);
@@ -77,13 +66,7 @@ export function applyCodexMaterialization(
     fs.writeFileSync(target, files[change.path], 'utf8');
   }
 
-  const managedFiles: GeneratedFilesManifest['files'] = {};
-  for (const relativePath of Object.keys(files)) {
-    const target = path.join(cwd, relativePath);
-    if (fs.existsSync(target) && fs.readFileSync(target, 'utf8') === files[relativePath]) {
-      managedFiles[relativePath] = { content_hash: hashFile(target) };
-    }
-  }
+  const managedFiles = managedFilesFor(cwd, files);
   writeGeneratedFilesManifest(cwd, { schema_version: MANIFEST_VERSION, profile_id: profile.id, profile_hash: profile.contentHash, files: managedFiles });
   return preview;
 }
@@ -118,7 +101,40 @@ function renderAgent(role: AgentRole, profile: EffectiveProfile): string {
   const instructions = profile.agents[role]
     .map((asset) => `[${asset.source}: ${asset.path}]\n${asset.content.trim()}`)
     .join('\n\n');
-  return `name = ${JSON.stringify(role)}\ndescription = ${JSON.stringify(`${role} instructions generated from the ${profile.id} profile.`)}\nsandbox_mode = ${JSON.stringify(role === 'planner' || role === 'reviewer' ? 'read-only' : 'workspace-write')}\ndeveloper_instructions = ${JSON.stringify(`Read .codex/global-rules.md before starting.\n\n${instructions}\n`)}\n`;
+  return `name = ${JSON.stringify(role)}\ndescription = ${JSON.stringify(`${role} instructions generated from the ${profile.id} profile.`)}\nsandbox_mode = ${JSON.stringify(isReadOnlyRole(role) ? 'read-only' : 'workspace-write')}\ndeveloper_instructions = ${JSON.stringify(`Read .codex/global-rules.md before starting.\n\n${instructions}\n`)}\n`;
+}
+
+function materializationChange(
+  cwd: string,
+  relativePath: string,
+  content: string,
+  existing: GeneratedFilesManifest | undefined,
+  mode: MaterializationMode
+): MaterializationChange {
+  const target = path.join(cwd, relativePath);
+  if (!fs.existsSync(target)) {
+    return mode === 'refresh'
+      ? { path: relativePath, action: 'conflict', reason: 'managed file is missing' }
+      : { path: relativePath, action: 'create' };
+  }
+  if (fs.readFileSync(target, 'utf8') === content) return { path: relativePath, action: 'unchanged' };
+  const recorded = existing?.files[relativePath];
+  if (recorded && hashFile(target) === recorded.content_hash) return { path: relativePath, action: 'update' };
+  return { path: relativePath, action: 'conflict', reason: recorded ? 'file was changed outside Largentic' : 'file is not managed by Largentic' };
+}
+
+function managedFilesFor(cwd: string, files: Record<string, string>): GeneratedFilesManifest['files'] {
+  return Object.entries(files).reduce<GeneratedFilesManifest['files']>((managedFiles, [relativePath, content]) => {
+    const target = path.join(cwd, relativePath);
+    if (fs.existsSync(target) && fs.readFileSync(target, 'utf8') === content) {
+      managedFiles[relativePath] = { content_hash: hashFile(target) };
+    }
+    return managedFiles;
+  }, {});
+}
+
+function isReadOnlyRole(role: AgentRole): boolean {
+  return role === 'planner' || role === 'reviewer';
 }
 
 function hashFile(filePath: string): string {

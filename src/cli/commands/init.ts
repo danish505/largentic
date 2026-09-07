@@ -3,7 +3,7 @@ import * as path from 'path';
 import { detectProfile } from '../../profiles/detector.js';
 import { HARNESS_DIR_NAME, HARNESS_NAME_WITH_VERSION } from '../../constants.js';
 import { applyCodexMaterialization } from '../../profiles/materializer.js';
-import { ProfileRegistry } from '../../profiles/registry.js';
+import { createProjectProfileRegistry } from '../../profiles/registry.js';
 
 const CONFIG_TEMPLATE = `# ${HARNESS_NAME_WITH_VERSION} Configuration
 # https://github.com/danish505/OpenHarness
@@ -60,7 +60,7 @@ export function initCommand(cwd: string, options: { profile?: string } = {}): vo
   const profileId = options.profile ?? detection.profile;
   let profile;
   try {
-    profile = new ProfileRegistry(undefined, cwd).resolve(profileId);
+    profile = createProjectProfileRegistry(cwd).resolve(profileId);
   } catch (error: unknown) {
     console.error(`❌ ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

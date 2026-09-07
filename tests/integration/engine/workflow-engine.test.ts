@@ -8,7 +8,7 @@ import { WorkflowEngine } from '../../../src/engine/workflow-engine.js';
 import { ApprovalGate } from '../../../src/engine/approval-gate.js';
 import { FakeProvider } from '../../../src/providers/fake-provider.js';
 import { StateStore } from '../../../src/state/state-store.js';
-import type { HarnessConfig, AgentResult, ApprovalDecision } from '../../../src/types.js';
+import type { AgentRequest, HarnessConfig, AgentResult, ApprovalDecision } from '../../../src/types.js';
 
 function makeGate(decisions: ApprovalDecision[], updateNotes: string[] = []): ApprovalGate {
   let index = 0;
@@ -405,7 +405,7 @@ describe('WorkflowEngine — integration', () => {
     config.workflow.plan_approval = 'required';
 
     const provider = new FakeProvider();
-    const calls: any[] = [];
+    const calls: AgentRequest[] = [];
     const originalExecute = provider.execute.bind(provider);
     provider.execute = async (req) => {
       calls.push(req);

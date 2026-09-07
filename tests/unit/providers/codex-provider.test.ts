@@ -31,8 +31,6 @@ function createChildProcess(result: {
 }) {
   const stdoutStream = new PassThrough();
   const stderrStream = new PassThrough();
-  const stdinStream = new PassThrough();
-
   let closeHandler: ((code: number | null, signal: NodeJS.Signals | null) => void) | undefined;
   let errorHandler: ((err: Error) => void) | undefined;
 

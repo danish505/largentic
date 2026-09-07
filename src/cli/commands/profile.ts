@@ -1,11 +1,9 @@
 import * as fs from 'fs';
-import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { findConfigPath, loadConfig } from '../../config/loader.js';
-import { HARNESS_DIR_NAME } from '../../constants.js';
 import { detectProfile } from '../../profiles/detector.js';
 import { applyCodexMaterialization, previewCodexMaterialization, type MaterializationResult } from '../../profiles/materializer.js';
-import { ProfileRegistry } from '../../profiles/registry.js';
+import { createProjectProfileRegistry } from '../../profiles/registry.js';
 
 export function profileListCommand(cwd: string): void {
   try {
@@ -76,8 +74,8 @@ export function profileRefreshCommand(cwd: string, options: { force?: boolean } 
   }
 }
 
-function registryFor(cwd: string): ProfileRegistry {
-  return new ProfileRegistry(undefined, cwd);
+function registryFor(cwd: string) {
+  return createProjectProfileRegistry(cwd);
 }
 
 function activeProfileId(cwd: string): string {
