@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://largentic/schemas/profile.schema.json",
+  "title": "Largentic Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "name", "version", "detection", "compatibility", "commands", "context", "rules", "agents"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "minLength": 1 },
+    "extends": { "type": "string", "enum": ["base"] },
+    "detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["indicators"],
+      "properties": { "indicators": { "type": "array", "items": { "type": "string" } } }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtimes"],
+      "properties": { "runtimes": { "type": "object", "additionalProperties": { "type": "string" } } }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "properties": { "package_manager": { "type": "string" } }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["priority", "exclude"],
+      "properties": {
+        "priority": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "rules": { "type": "array", "items": { "$ref": "#/$defs/assetPath" } },
+    "agents": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planner", "implementer", "tester", "reviewer"],
+      "properties": {
+        "planner": { "type": "array", "items": { "$ref": "#/$defs/assetPath" } },
+        "implementer": { "type": "array", "items": { "$ref": "#/$defs/assetPath" } },
+        "tester": { "type": "array", "items": { "$ref": "#/$defs/assetPath" } },
+        "reviewer": { "type": "array", "items": { "$ref": "#/$defs/assetPath" } }
+      }
+    }
+  },
+  "$defs": { "assetPath": { "type": "string", "minLength": 1 } }
+}

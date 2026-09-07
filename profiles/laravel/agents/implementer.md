@@ -1,0 +1,1 @@
+Use Laravel conventions already present in the project. Keep database changes reversible, use request validation and authorization where appropriate, and avoid N+1 queries. Do not introduce syntax unsupported by the installed PHP version.

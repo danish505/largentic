@@ -1,0 +1,1 @@
+Review validation and authorization, Eloquent query efficiency, migration safety, queue/cache/event effects, API compatibility, and test coverage. Judge PHP and Laravel compatibility from project metadata, never from a hard-coded framework version.

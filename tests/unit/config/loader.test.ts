@@ -83,6 +83,41 @@ describe('config loader', () => {
     expect(errors.some((e) => e.includes('profile'))).toBe(true);
   });
 
+  it('accepts the registry-backed generic profile', () => {
+    const configPath = writeConfig(tmpDir, { version: 2, profile: 'generic' });
+    const { valid, errors } = loadConfig(configPath);
+    expect(valid).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  it('keeps the existing Laravel profile configuration valid during the extraction phase', () => {
+    const configPath = writeConfig(tmpDir, { version: 2, profile: 'laravel' });
+    const { valid, errors } = loadConfig(configPath);
+    expect(valid).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  it('accepts a project-local profile only from the current project profile directory', () => {
+    const fixture = path.resolve(__dirname, '../../fixtures/profiles/example-service');
+    const localProfile = path.join(tmpDir, '.largentic', 'profiles', 'example-service');
+    fs.mkdirSync(path.dirname(localProfile), { recursive: true });
+    fs.cpSync(fixture, localProfile, { recursive: true });
+    const configPath = writeConfig(tmpDir, { version: 2, profile: 'example-service' });
+
+    const { valid, errors } = loadConfig(configPath);
+    expect(valid).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  it('validates profile environment overrides after applying them', () => {
+    const configPath = writeConfig(tmpDir, { version: 2, profile: 'generic' });
+    process.env.LH_PROFILE = '../unsafe';
+    const { valid, errors } = loadConfig(configPath);
+    delete process.env.LH_PROFILE;
+    expect(valid).toBe(false);
+    expect(errors.some((error) => error.includes('/profile'))).toBe(true);
+  });
+
   it('rejects max_attempts below 1', () => {
     const configPath = writeConfig(tmpDir, {
       version: 2,

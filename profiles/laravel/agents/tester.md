@@ -1,0 +1,1 @@
+Prefer the project's Composer test script. If it is unavailable, use php artisan test when artisan exists, then vendor/bin/phpunit when available. Add focused Laravel feature or unit coverage using framework fakes and helpers where appropriate.

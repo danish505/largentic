@@ -1,25 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as yaml from 'js-yaml';
 import { detectProfile } from '../../profiles/detector.js';
 import { HARNESS_DIR_NAME, HARNESS_NAME_WITH_VERSION } from '../../constants.js';
-
-const CODEX_TEMPLATE_DIR = path.resolve(__dirname, '../../../templates/codex');
-
-const CODEX_FILES = [
-  'config.toml',
-  'global-rules.md',
-  path.join('agents', 'planner.toml'),
-  path.join('agents', 'implementer.toml'),
-  path.join('agents', 'tester.toml'),
-  path.join('agents', 'reviewer.toml'),
-];
+import { applyCodexMaterialization } from '../../profiles/materializer.js';
+import { ProfileRegistry } from '../../profiles/registry.js';
 
 const CONFIG_TEMPLATE = `# ${HARNESS_NAME_WITH_VERSION} Configuration
 # https://github.com/danish505/OpenHarness
 version: 2
 
-# Detected profile (laravel | generic)
+# Selected profile (built-in or manually authored project-local profile)
 profile: PROFILE_PLACEHOLDER
 
 workflow:
@@ -56,7 +46,7 @@ budget:
 # provider: codex   # override global default provider
 `;
 
-export function initCommand(cwd: string): void {
+export function initCommand(cwd: string, options: { profile?: string } = {}): void {
   const harnessDir = path.join(cwd, HARNESS_DIR_NAME);
   const configPath = path.join(harnessDir, 'config.yaml');
 
@@ -66,11 +56,21 @@ export function initCommand(cwd: string): void {
     return;
   }
 
+  const detection = detectProfile(cwd);
+  const profileId = options.profile ?? detection.profile;
+  let profile;
+  try {
+    profile = new ProfileRegistry(undefined, cwd).resolve(profileId);
+  } catch (error: unknown) {
+    console.error(`❌ ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+    return;
+  }
+
   fs.mkdirSync(harnessDir, { recursive: true });
   fs.mkdirSync(path.join(harnessDir, 'runs'), { recursive: true });
 
-  const detection = detectProfile(cwd);
-  const config = CONFIG_TEMPLATE.replace('PROFILE_PLACEHOLDER', detection.profile);
+  const config = CONFIG_TEMPLATE.replace('PROFILE_PLACEHOLDER', profileId);
   fs.writeFileSync(configPath, config, 'utf8');
 
   const taskPath = path.join(harnessDir, 'task.md');
@@ -78,29 +78,14 @@ export function initCommand(cwd: string): void {
     fs.writeFileSync(taskPath, '# Task\n\nReplace this with your task description. This file is used when you run `lh run` without an inline prompt.\n', 'utf8');
   }
 
-  const codexDir = path.join(cwd, '.codex');
-  const codexAgentsDir = path.join(codexDir, 'agents');
-  fs.mkdirSync(codexAgentsDir, { recursive: true });
-
-  let codexFilesDeployed = 0;
-  for (const relativePath of CODEX_FILES) {
-    const sourcePath = path.join(CODEX_TEMPLATE_DIR, relativePath);
-    const targetPath = path.join(codexDir, relativePath);
-
-    if (fs.existsSync(sourcePath) && !fs.existsSync(targetPath)) {
-      fs.copyFileSync(sourcePath, targetPath);
-      codexFilesDeployed++;
-    }
-  }
+  const materialization = applyCodexMaterialization(cwd, profile);
 
   console.log(`✓ Initialized ${HARNESS_NAME_WITH_VERSION}`);
   console.log(`  Config:    ${configPath}`);
   console.log(`  Task file: ${taskPath}  (edit to define your default task)`);
-  console.log(`  Profile detected: ${detection.profile}`);
+  console.log(`  Profile: ${profileId}${options.profile ? ' (explicit)' : ' (detected)'}`);
   detection.hints.forEach((h) => console.log(`    • ${h}`));
-  if (codexFilesDeployed > 0) {
-    console.log(`  Codex setup: ${codexFilesDeployed} file(s) deployed to ${codexDir}`);
-    console.log('    Customize .codex/global-rules.md and .codex/agents/*.toml per project.');
-  }
+  materialization.changes.forEach((change) => console.log(`  Codex ${change.action}: ${change.path}${change.reason ? ` (${change.reason})` : ''}`));
+  if (materialization.conflicts.length > 0) console.log('  Existing conflicting Codex files were left untouched. Run "lh profile diff" for details.');
   console.log('\n  Next: run "lh doctor" to verify your environment.');
 }

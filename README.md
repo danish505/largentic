@@ -32,6 +32,13 @@ From a project where Largentic is installed:
 lh init
 ```
 
+`lh init` detects Laravel when `artisan` or `laravel/framework` is present, otherwise selects the framework-neutral `generic` profile. Override detection with a built-in or manually authored local profile:
+
+```bash
+lh init --profile laravel
+lh init --profile example-service
+```
+
 `lh init` creates:
 
 ```text
@@ -79,7 +86,13 @@ The plan file must be inside `workflow.plan_export_directory`, which defaults to
 
 | Command | Description |
 |---------|-------------|
-| `lh init` | Create V2 project configuration and Codex agent files |
+| `lh init [--profile <id>]` | Create V2 configuration and profile-derived Codex files |
+| `lh profile list` | List built-in and manually authored project-local profiles |
+| `lh profile detect` | Show Laravel/generic detection evidence |
+| `lh profile show [id]` | Print the effective active or named profile |
+| `lh profile diff [id]` | Preview profile-derived Codex file changes without writing |
+| `lh profile apply <id>` | Select and safely materialize a profile |
+| `lh profile refresh` | Refresh only unmodified generated Codex files |
 | `lh doctor` | Check environment prerequisites and configuration |
 | `lh config validate` | Validate `.largentic/config.yaml` |
 | `lh config show` | Print merged configuration |
@@ -139,6 +152,23 @@ workflow:
   plan_export_directory: .largentic/exports
 ```
 
+## Profiles and migration
+
+Built-in profiles are `generic` and `laravel`; both inherit universal safety rules from `base`. A local profile is authored manually under `.largentic/profiles/<id>/` and must contain a declarative `profile.yaml` plus the Markdown files it references. Largentic does not provide a profile create or scaffold command.
+
+```text
+.largentic/profiles/example-service/
+├── profile.yaml
+├── rules/global.md
+└── agents/
+    ├── planner.md
+    ├── implementer.md
+    ├── tester.md
+    └── reviewer.md
+```
+
+For an existing V2 project, keep its current `profile: generic` or `profile: laravel` setting. Run `lh profile diff <id>` before `lh profile apply <id>`. Generated Codex file hashes are recorded in `.largentic/generated-files.json`; Largentic refreshes only files that still match those hashes. Developer-edited or unmanaged `.codex` files are reported as conflicts and never silently replaced. Use `--force` only when you want timestamped backups followed by replacement.
+
 When the effective provider is `codex`, the CLI requires these readable files:
 
 ```text
@@ -159,7 +189,7 @@ npm test
 npm run typecheck
 ```
 
-The V2 implementation is in `src/`, schemas are in `schemas/`, initialization templates are in `templates/`, and automated tests are in `tests/`.
+The V2 implementation is in `src/`, built-in profiles are in `profiles/`, schemas are in `schemas/`, and automated tests are in `tests/`.
 
 Architecture decision records are in `docs/architecture/`. The phased roadmap is in `largentic-V2-Implementation-Plan.md`.
 

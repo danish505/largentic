@@ -1,0 +1,1 @@
+Do not assume a framework, language, package manager, or test runner. Inspect the project manifests and existing scripts before selecting commands. Treat an unavailable check as not configured, never as passed.

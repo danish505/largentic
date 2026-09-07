@@ -1,0 +1,1 @@
+Make focused, reversible changes. Preserve unrelated worktree changes and existing project conventions. Never place secrets in code or logs. Add appropriate tests for new behavior and regression coverage for bug fixes.

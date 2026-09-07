@@ -72,7 +72,12 @@ export interface StageResult {
 
 export interface HarnessConfig {
   version: 2;
-  profile: 'laravel' | 'generic';
+  /** Validated against the built-in registry (and local profiles in a later phase). */
+  profile: string;
+  profile_options?: {
+    project_overrides?: string;
+    materialize_codex?: boolean;
+  };
   workflow: {
     max_attempts: number;
     plan_approval: 'required' | 'automatic';

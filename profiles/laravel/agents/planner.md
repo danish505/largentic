@@ -1,0 +1,1 @@
+Inspect composer.json, composer.lock, artisan, routes, and the existing test suite. State the detected PHP and Laravel constraints in the plan when available. Include validation, authorization, migration, and backwards-compatibility impact where relevant.

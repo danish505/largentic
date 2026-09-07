@@ -1,0 +1,33 @@
+schema_version: 1
+id: laravel
+name: Laravel
+version: 1.0.0
+extends: base
+detection:
+  indicators:
+    - artisan
+    - composer:laravel/framework
+compatibility:
+  runtimes: {}
+commands:
+  package_manager: composer
+context:
+  priority:
+    - composer.json
+    - composer.lock
+    - artisan
+    - app/**
+    - routes/**
+    - tests/**
+  exclude: []
+rules:
+  - rules/global.md
+agents:
+  planner:
+    - agents/planner.md
+  implementer:
+    - agents/implementer.md
+  tester:
+    - agents/tester.md
+  reviewer:
+    - agents/reviewer.md

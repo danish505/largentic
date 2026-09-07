@@ -1,0 +1,27 @@
+schema_version: 1
+id: base
+name: Base Engineering Rules
+version: 1.0.0
+detection:
+  indicators: []
+compatibility:
+  runtimes: {}
+commands:
+  package_manager: auto
+context:
+  priority: []
+  exclude:
+    - node_modules/**
+    - dist/**
+    - coverage/**
+rules:
+  - rules/global.md
+agents:
+  planner:
+    - agents/planner.md
+  implementer:
+    - agents/implementer.md
+  tester:
+    - agents/tester.md
+  reviewer:
+    - agents/reviewer.md

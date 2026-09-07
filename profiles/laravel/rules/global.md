@@ -1,0 +1,1 @@
+Work as a Laravel project only after verifying the installed Laravel and PHP versions from Composer metadata. Do not assume a Laravel or PHP major version. Follow existing application conventions for validation, authorization, migrations, Eloquent relationships, queues, cache, and events. Prefer existing Composer scripts for checks.

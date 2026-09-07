@@ -17,6 +17,7 @@ export function statusCommand(runId: string, cwd: string): void {
 
     console.log(`\nRun: ${runId}`);
     console.log(`  Task   : ${manifest.task}`);
+    console.log(`  Profile: ${manifest.profile}`);
     console.log(`  Status : ${state.status}`);
     console.log(`  Attempt: ${state.attempt}`);
     console.log(`  Elapsed: ${elapsed}s`);
