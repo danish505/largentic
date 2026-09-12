@@ -56,4 +56,11 @@ describe('initCommand', () => {
 
     expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(false);
   });
+
+  it('uses an explicitly requested profile for config and generated Codex files', () => {
+    initCommand(tmpDir, { profile: 'laravel' });
+
+    expect(fs.readFileSync(path.join(tmpDir, '.largentic', 'config.yaml'), 'utf8')).toContain('profile: laravel');
+    expect(fs.readFileSync(path.join(tmpDir, '.codex', 'global-rules.md'), 'utf8')).toContain('Largentic profile: laravel');
+  });
 });

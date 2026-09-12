@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Built-in `base`, `generic`, and `laravel` profiles now provide reusable
+  Markdown guidance for planner, implementer, tester, and reviewer roles.
+- `lh profile list`, `detect`, `show`, `diff`, `apply`, and `refresh` support
+  inspecting and safely materializing built-in or project-local profiles.
+- Plans can be exported during approval and reused with
+  `lh run --plan-file <path>` to begin at implementation.
+- Plan approval now supports revision requests, allowing the planner to update
+  a plan before implementation starts.
+- Rejected reviews are saved as `requested-changes.md` and supplied to a new
+  planning cycle before the implementation, testing, and review retry.
+- `npm run test:package` verifies the files included in the published package.
+
+### Changed
+
+- `lh init` detects Laravel projects and selects the `laravel` profile;
+  framework-neutral projects use `generic` unless a profile is explicitly
+  selected.
+- Profile-generated Codex configuration now records managed-file hashes and
+  preserves developer-edited files unless replacement is explicitly forced.
+- The legacy V1 `harness/` implementation has been removed; V2 artifacts live
+  exclusively under `.largentic/`.
+
+### Fixed
+
+- Workflow retries now return rejected reviews to planning so revised plans can
+  incorporate reviewer feedback.
+- Generated native-agent instructions are included when Codex stages execute.
+
 ## 2.0.0
 
 Major release of Largentic with a full file-based SDLC workflow.

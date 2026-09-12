@@ -37,8 +37,8 @@ describe('state-machine', () => {
       expect(isValidTransition('testing_failed', 'implementing')).toBe(true);
     });
 
-    it('allows review_rejected → implementing (retry)', () => {
-      expect(isValidTransition('review_rejected', 'implementing')).toBe(true);
+    it('allows review_rejected → planning (replan)', () => {
+      expect(isValidTransition('review_rejected', 'planning')).toBe(true);
     });
 
     it('rejects created → approved (skipping stages)', () => {

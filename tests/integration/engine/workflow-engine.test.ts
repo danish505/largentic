@@ -8,7 +8,7 @@ import { WorkflowEngine } from '../../../src/engine/workflow-engine.js';
 import { ApprovalGate } from '../../../src/engine/approval-gate.js';
 import { FakeProvider } from '../../../src/providers/fake-provider.js';
 import { StateStore } from '../../../src/state/state-store.js';
-import type { HarnessConfig, AgentResult, ApprovalDecision } from '../../../src/types.js';
+import type { AgentRequest, HarnessConfig, AgentResult, ApprovalDecision } from '../../../src/types.js';
 
 function makeGate(decisions: ApprovalDecision[], updateNotes: string[] = []): ApprovalGate {
   let index = 0;
@@ -122,6 +122,49 @@ describe('WorkflowEngine — integration', () => {
     const finalState = await engine.run();
     expect(finalState.status).toBe('approved');
     expect(testCallCount).toBe(2);
+  });
+
+  it('replans from reviewer requested changes before starting the next cycle', async () => {
+    const manager = new RunManager(tmpDir);
+    const { runId, paths } = manager.create('Fix review findings', { profile: 'generic', provider: 'fake' });
+    const provider = new FakeProvider();
+    const requests: AgentRequest[] = [];
+    let reviewCallCount = 0;
+    const originalExecute = provider.execute.bind(provider);
+    provider.execute = async (request) => {
+      requests.push(request);
+      if (request.stage === 'reviewing') {
+        reviewCallCount++;
+        if (reviewCallCount === 1) {
+          return {
+            status: 'success',
+            content: '## Verdict\nREQUEST_CHANGES\n\n## Requested Changes\n- Add regression coverage for the reported edge case.',
+          };
+        }
+      }
+      return originalExecute(request);
+    };
+
+    const engine = new WorkflowEngine({
+      config: defaultConfig(),
+      provider,
+      runId,
+      paths,
+      task: 'Fix review findings',
+      cwd: tmpDir,
+      autoApprove: true,
+    });
+
+    const finalState = await engine.run();
+
+    expect(finalState.status).toBe('approved');
+    expect(reviewCallCount).toBe(2);
+    expect(requests.filter((request) => request.stage === 'planning')).toHaveLength(2);
+    expect(fs.readFileSync(path.join(paths.runDir, 'requested-changes.md'), 'utf8')).toContain('Add regression coverage');
+
+    const replanningRequest = requests.filter((request) => request.stage === 'planning')[1];
+    expect(replanningRequest.systemPrompt).toContain(path.join(paths.runDir, 'requested-changes.md'));
+    expect(replanningRequest.userMessage).toContain('The reviewer requested changes.');
   });
 
   it('reaches failed state when max_attempts exceeded', async () => {
@@ -254,6 +297,13 @@ describe('WorkflowEngine — integration', () => {
   it('passes conductor context to each stage', async () => {
     const manager = new RunManager(tmpDir);
     const { runId, paths } = manager.create('Conductor test', { profile: 'generic', provider: 'fake' });
+    const agentDir = path.join(tmpDir, '.codex', 'agents');
+    fs.mkdirSync(agentDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(agentDir, 'planner.toml'),
+      'name = "planner"\ndeveloper_instructions = """\nPlanner guideline marker: inspect the relevant repository code first.\n"""\n',
+      'utf8'
+    );
 
     const provider = new FakeProvider();
     const requests: Array<{ stage: string; systemPrompt: string; userMessage: string }> = [];
@@ -283,12 +333,15 @@ describe('WorkflowEngine — integration', () => {
     expect(planning!.systemPrompt).toContain(`.codex/global-rules.md`);
     expect(planning!.systemPrompt).toContain(runId);
     expect(planning!.systemPrompt).toContain(paths.runDir);
+    expect(planning!.systemPrompt).toContain('Generated planner instructions');
+    expect(planning!.systemPrompt).toContain('Planner guideline marker: inspect the relevant repository code first.');
 
     const implementing = requests.find((r) => r.stage === 'implementing');
     expect(implementing).toBeDefined();
     expect(implementing!.systemPrompt).toContain('Selected agent: implementer');
     expect(implementing!.systemPrompt).toContain(path.join(paths.runDir, 'plan.md'));
     expect(implementing!.systemPrompt).toContain(path.join(paths.runDir, 'implementation.md'));
+    expect(implementing!.systemPrompt).not.toContain('Planner guideline marker: inspect the relevant repository code first.');
 
     const testing = requests.find((r) => r.stage === 'testing');
     expect(testing).toBeDefined();
@@ -405,7 +458,7 @@ describe('WorkflowEngine — integration', () => {
     config.workflow.plan_approval = 'required';
 
     const provider = new FakeProvider();
-    const calls: any[] = [];
+    const calls: AgentRequest[] = [];
     const originalExecute = provider.execute.bind(provider);
     provider.execute = async (req) => {
       calls.push(req);

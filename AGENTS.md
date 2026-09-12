@@ -8,8 +8,13 @@ When the Captain asks to run the harness:
 4. Use the tester agent to write `.largentic/runs/<run-id>/test-results.md`.
 5. Use the reviewer agent to write `.largentic/runs/<run-id>/review.md`.
 6. If the tester fails, repeat implementer -> tester.
-7. If the review fails, repeat implementer -> tester -> reviewer.
-8. Use the run files as the source of truth, not chat output.
+7. If the reviewer requests changes, read
+   `.largentic/runs/<run-id>/requested-changes.md`, replan, then repeat
+   implementer -> tester -> reviewer.
+8. During required plan approval, let Captain approve, reject, export, or
+   request updates to the plan before implementation begins.
+9. Respect `workflow.max_attempts`; use the run files as the source of truth,
+   not chat output.
 
 Testing:
 - Assume PHPUnit unless the project specifies another test runner.
@@ -26,6 +31,9 @@ Git safety:
 
 File handoff:
 - The active run directory is `.largentic/runs/<run-id>/`.
-- Keep `plan.md`, `implementation.md`, `test-results.md`, and `review.md` concise and factual.
+- Keep `plan.md`, `implementation.md`, `test-results.md`, `review.md`, and
+  `requested-changes.md` concise and factual.
+- Preserve per-attempt artifacts under `.largentic/runs/<run-id>/attempts/`;
+  the run-root Markdown files are the current handoffs.
 - Put raw command output in the run directory or another ignored project-local location.
 - Do not commit local state, logs, diffs, secrets, or `.env` files.

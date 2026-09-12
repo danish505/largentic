@@ -13,9 +13,17 @@
     },
     "profile": {
       "type": "string",
-      "enum": ["laravel", "generic"],
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
       "default": "generic",
-      "description": "Framework profile to use."
+      "description": "Profile ID. It is validated against the profile registry after schema validation."
+    },
+    "profile_options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project_overrides": { "type": "string", "minLength": 1 },
+        "materialize_codex": { "type": "boolean" }
+      }
     },
     "workflow": {
       "type": "object",

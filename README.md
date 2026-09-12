@@ -32,6 +32,13 @@ From a project where Largentic is installed:
 lh init
 ```
 
+`lh init` detects Laravel when `artisan` or `laravel/framework` is present, otherwise selects the framework-neutral `generic` profile. Override detection with a built-in or manually authored local profile:
+
+```bash
+lh init --profile laravel
+lh init --profile example-service
+```
+
 `lh init` creates:
 
 ```text
@@ -66,7 +73,9 @@ Use `lh doctor` to check Node, Git, Codex CLI, and project configuration before 
 
 ### Predefined plans
 
-An exported plan can be supplied to skip the planning stage:
+At the plan-approval prompt, choose `export` to save the generated plan under
+`.largentic/exports/`. An exported plan can later be supplied to skip the
+planner stage:
 
 ```bash
 lh run "Add rate limiting to the login endpoint" \
@@ -75,11 +84,20 @@ lh run "Add rate limiting to the login endpoint" \
 
 The plan file must be inside `workflow.plan_export_directory`, which defaults to `.largentic/exports`.
 
+When interactive plan approval is enabled, choose `update` to give the planner
+additional direction and generate a revised plan before implementation begins.
+
 ## CLI commands
 
 | Command | Description |
 |---------|-------------|
-| `lh init` | Create V2 project configuration and Codex agent files |
+| `lh init [--profile <id>]` | Create V2 configuration and profile-derived Codex files |
+| `lh profile list` | List built-in and manually authored project-local profiles |
+| `lh profile detect` | Show Laravel/generic detection evidence |
+| `lh profile show [id]` | Print the effective active or named profile |
+| `lh profile diff [id]` | Preview profile-derived Codex file changes without writing |
+| `lh profile apply <id>` | Select and safely materialize a profile |
+| `lh profile refresh` | Refresh only unmodified generated Codex files |
 | `lh doctor` | Check environment prerequisites and configuration |
 | `lh config validate` | Validate `.largentic/config.yaml` |
 | `lh config show` | Print merged configuration |
@@ -107,6 +125,7 @@ Each run is stored under `.largentic/runs/<run-id>/`:
         ├── implementation.md
         ├── test-results.md
         ├── review.md
+        ├── requested-changes.md
         └── attempts/
             └── <attempt>/
 ```
@@ -122,7 +141,10 @@ tester      -> test-results.md
 reviewer    -> review.md
 ```
 
-Testing failures retry implementation and testing up to `workflow.max_attempts`. Review rejections retry implementation, testing, and review up to the same limit. Plan approval and review approval are controlled by configuration.
+Testing failures retry implementation and testing up to `workflow.max_attempts`.
+When a reviewer requests changes, the review is saved as `requested-changes.md`
+and the workflow returns to planning before another implementation, test, and
+review cycle. Plan approval and review approval are controlled by configuration.
 
 ## Configuration
 
@@ -138,6 +160,29 @@ workflow:
   review_approval: automatic
   plan_export_directory: .largentic/exports
 ```
+
+## Profiles and migration
+
+Built-in profiles are `generic` and `laravel`; both inherit universal safety
+rules and role-specific engineering guidance from `base`. Profiles materialize
+the selected guidance into `.codex/global-rules.md` and the four native-agent
+TOML files. A local profile is authored manually under
+`.largentic/profiles/<id>/` and must contain a declarative `profile.yaml` plus
+the Markdown files it references. Largentic does not provide a profile create
+or scaffold command.
+
+```text
+.largentic/profiles/example-service/
+├── profile.yaml
+├── rules/global.md
+└── agents/
+    ├── planner.md
+    ├── implementer.md
+    ├── tester.md
+    └── reviewer.md
+```
+
+For an existing V2 project, keep its current `profile: generic` or `profile: laravel` setting. Run `lh profile diff <id>` before `lh profile apply <id>`. Generated Codex file hashes are recorded in `.largentic/generated-files.json`; Largentic refreshes only files that still match those hashes. Developer-edited or unmanaged `.codex` files are reported as conflicts and never silently replaced. Use `--force` only when you want timestamped backups followed by replacement.
 
 When the effective provider is `codex`, the CLI requires these readable files:
 
@@ -159,13 +204,16 @@ npm test
 npm run typecheck
 ```
 
-The V2 implementation is in `src/`, schemas are in `schemas/`, initialization templates are in `templates/`, and automated tests are in `tests/`.
+The V2 implementation is in `src/`, built-in profiles are in `profiles/`, schemas are in `schemas/`, and automated tests are in `tests/`.
 
 Architecture decision records are in `docs/architecture/`. The phased roadmap is in `largentic-V2-Implementation-Plan.md`.
 
 ## Legacy V1
 
-The legacy V1 files live under `harness/` and are not used by the V2 CLI. V2 uses `.largentic/` run state and its own TypeScript engine. The two workflows should be treated as independent during migration and cleanup.
+The legacy V1 `harness/` implementation has been removed. V2 uses
+`.largentic/` run state and its own TypeScript engine; migrate any remaining
+local V1 artifacts to the V2 workflow rather than relying on the retired
+directory structure.
 
 ## License
 

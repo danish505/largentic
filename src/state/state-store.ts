@@ -65,8 +65,8 @@ export class StateStore {
     to: RunStatus,
     current: number
   ): number {
-    const retryEntry = to === 'implementing' &&
-      (from === 'testing_failed' || from === 'review_rejected');
+    const retryEntry = (to === 'implementing' && from === 'testing_failed') ||
+      (to === 'planning' && from === 'review_rejected');
     return retryEntry ? current + 1 : current;
   }
 }

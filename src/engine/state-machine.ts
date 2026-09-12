@@ -10,7 +10,7 @@ const TRANSITIONS: TransitionMap = {
   testing:                 ['reviewing', 'testing_failed', 'failed', 'cancelled'],
   testing_failed:          ['implementing', 'failed', 'cancelled'],
   reviewing:               ['approved', 'review_rejected', 'failed', 'cancelled'],
-  review_rejected:         ['implementing', 'failed', 'cancelled'],
+  review_rejected:         ['planning', 'failed', 'cancelled'],
 };
 
 const TERMINAL: Set<RunStatus> = new Set(['approved', 'cancelled', 'failed', 'blocked']);

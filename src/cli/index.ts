@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import * as path from 'path';
 import { initCommand } from './commands/init.js';
 import { doctorCommand } from './commands/doctor.js';
 import { configValidateCommand, configShowCommand } from './commands/config.js';
 import { runCommand } from './commands/run.js';
 import { statusCommand, inspectCommand, cancelCommand } from './commands/status.js';
 import { reportCommand } from './commands/report.js';
+import { profileApplyCommand, profileDetectCommand, profileDiffCommand, profileListCommand, profileRefreshCommand, profileShowCommand } from './commands/profile.js';
 import { HARNESS_DIR_NAME, HARNESS_NAME_WITH_VERSION } from '../constants.js';
 
 const cwd = process.cwd();
@@ -21,7 +21,8 @@ program
 program
   .command('init')
   .description(`Initialise ${HARNESS_NAME_WITH_VERSION} in the current project`)
-  .action(() => initCommand(cwd));
+  .option('--profile <id>', 'Use an explicit built-in or manually authored local profile')
+  .action((options: { profile?: string }) => initCommand(cwd, options));
 
 program
   .command('doctor')
@@ -39,6 +40,15 @@ configCmd
   .command('show')
   .description('Print the merged configuration')
   .action(() => configShowCommand(cwd));
+
+const profileCmd = program.command('profile').description('Inspect and safely materialize profiles');
+
+profileCmd.command('list').description('List built-in and project-local profiles').action(() => profileListCommand(cwd));
+profileCmd.command('detect').description('Show built-in profile detection evidence').action(() => profileDetectCommand(cwd));
+profileCmd.command('show [id]').description('Show the selected or named effective profile').action((id?: string) => profileShowCommand(cwd, id));
+profileCmd.command('diff [id]').description('Preview Codex files that a profile would generate').action((id?: string) => profileDiffCommand(cwd, id));
+profileCmd.command('apply <id>').description('Select and safely materialize a profile').option('--force', 'Back up and replace conflicting Codex files').action((id: string, options: { force?: boolean }) => profileApplyCommand(cwd, id, options));
+profileCmd.command('refresh').description('Refresh only unmodified generated Codex files').option('--force', 'Back up and replace conflicting Codex files').action((options: { force?: boolean }) => profileRefreshCommand(cwd, options));
 
 program
   .command('run [task]')

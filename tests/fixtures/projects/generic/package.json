@@ -1,0 +1,1 @@
+{"name":"generic-fixture","scripts":{"test":"vitest run"}}

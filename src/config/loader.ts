@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { HarnessConfig } from '../types.js';
 import { HARNESS_DIR_NAME } from '../constants.js';
+import { createProjectProfileRegistry } from '../profiles/registry.js';
 
 const CONFIG_DEFAULTS: HarnessConfig = {
   version: 2,
@@ -75,18 +76,26 @@ export function loadConfig(configPath: string): ConfigLoadResult {
     raw as Record<string, unknown>
   );
 
-  const valid = validate(merged);
-  const errors: string[] = valid
+  const withEnvironment = applyEnvOverrides(merged as unknown as HarnessConfig);
+  const schemaValid = validate(withEnvironment);
+  const errors: string[] = schemaValid
     ? []
     : (validate.errors ?? []).map(
         (e) => `  ${e.instancePath || '(root)'}: ${e.message}`
       );
 
-  return {
-    config: applyEnvOverrides(merged as unknown as HarnessConfig),
-    errors,
-    valid: !!valid,
-  };
+  if (schemaValid) {
+    try {
+      // Profile IDs are intentionally validated separately from the config schema so
+      // a future local registry can participate without a config schema release.
+      createProjectProfileRegistry(path.dirname(path.dirname(configPath))).resolve(withEnvironment.profile);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`  /profile: ${message}`);
+    }
+  }
+
+  return { config: withEnvironment, errors, valid: errors.length === 0 };
 }
 
 function applyEnvOverrides(config: HarnessConfig): HarnessConfig {
@@ -97,7 +106,7 @@ function applyEnvOverrides(config: HarnessConfig): HarnessConfig {
     config.workflow.max_attempts = parseInt(process.env.LH_MAX_ATTEMPTS, 10);
   }
   if (process.env.LH_PROFILE) {
-    config.profile = process.env.LH_PROFILE as HarnessConfig['profile'];
+    config.profile = process.env.LH_PROFILE;
   }
   return config;
 }
