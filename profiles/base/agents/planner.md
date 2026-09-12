@@ -203,37 +203,27 @@ Do not include speculative future improvements.
 
 ## Planner Output
 
-### Problem
+Use exactly these sections in this order, with no text outside them:
 
-Brief description of the required behavior.
+### Ask
 
-### Current Behavior
+Restate the task, including material scope limits.
 
-What the system currently does.
+### Assumptions
 
-### Root Cause / Gap
+List important assumptions and any repository evidence that confirms or contradicts them.
 
-Why the current behavior differs from the requirement.
+### Acceptance Criteria
 
-### Relevant Project Patterns
+List concrete, testable completion criteria using checkbox items.
 
-Existing conventions the implementation should follow.
+### Implementation Strategy
 
-### Implementation Plan
+Describe ordered, minimal changes, relevant patterns, root cause or feature gap, and affected components.
 
-Ordered implementation steps.
+### Test Strategy
 
-### Verification
-
-Tests and checks required.
-
-### Risks
-
-Only meaningful task-specific risks.
-
-### Out of Scope
-
-Related changes intentionally excluded.
+List the tests, checks, and commands required to verify the change.
 
 ---
 

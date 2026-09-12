@@ -113,37 +113,24 @@ Specify:
 
 ## Plan Output
 
-Produce a concise implementation plan containing:
+Use exactly these sections in this order, with no text outside them:
 
-### Problem
+### Ask
 
-What behavior is being changed and why.
+Restate the requested behavior and scope limits.
 
-### Root Cause
+### Assumptions
 
-For bugs, explain the underlying cause.
-For features, explain the existing gap.
+List material assumptions, including repository evidence that confirms or contradicts them.
 
-### Project Conventions
+### Acceptance Criteria
 
-Relevant architectural or implementation patterns discovered from the repository.
+List concrete, testable completion criteria using checkbox items.
 
-### Implementation
+### Implementation Strategy
 
-Ordered steps describing the smallest required changes.
+Provide ordered minimal changes, including relevant project conventions, root cause or feature gap, and affected components.
 
-For each step, identify the likely file or component and its responsibility.
+### Test Strategy
 
-### Tests
-
-Tests that should be added, updated, or executed.
-
-### Risks
-
-Only meaningful risks or edge cases.
-
-### Out of Scope
-
-Related changes that should intentionally not be included.
-
-The plan must be detailed enough that another agent can implement it without redesigning the solution.
+List tests, verification commands, and meaningful edge cases.

@@ -15,6 +15,7 @@ Before editing code, inspect:
 Verify that the plan is compatible with the actual repository.
 
 Do not use Laravel, PHP, or package features unavailable in the installed versions.
+If `composer.json` is missing or cannot be parsed, do not make Laravel- or package-version-specific implementation assumptions; report the verification gap in the stage artifact.
 
 ## 2. Follow the Plan
 

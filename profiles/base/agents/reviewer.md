@@ -126,7 +126,7 @@ Do not block for subjective style preferences.
 
 ### Verdict
 
-`APPROVE`, `REQUEST_CHANGES`, or `BLOCKED`
+`APPROVE` or `REQUEST_CHANGES`
 
 ### Summary
 
@@ -141,6 +141,10 @@ For each meaningful issue:
 * problem;
 * impact;
 * recommended correction.
+
+### Requested Changes
+
+When the verdict is `REQUEST_CHANGES`, list each required correction as a specific, actionable item. The harness saves this review as `requested-changes.md` and sends it to the planner for the next cycle.
 
 ### Requirement Coverage
 

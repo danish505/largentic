@@ -17,6 +17,8 @@ Always inspect:
 * repository instructions such as `AGENTS.md` or `CLAUDE.md`
 * relevant routes, controllers, models, services, repositories, requests, jobs, migrations, and tests
 
+If `composer.json` is missing or cannot be parsed, record that as an assumption and do not plan Laravel- or package-version-specific changes until the project metadata is verified.
+
 Determine:
 
 * PHP version
@@ -115,36 +117,24 @@ Specify:
 
 ## Output
 
-Produce:
+Use exactly these sections in this order, with no text outside them:
 
-### Problem
+### Ask
 
-What needs to change.
+Restate the Laravel change and scope limits.
 
-### Current Behavior
+### Assumptions
 
-What the system currently does.
+List material assumptions, including Composer evidence for the PHP, Laravel, and relevant package versions.
 
-### Root Cause / Gap
+### Acceptance Criteria
 
-Why current behavior differs from expected behavior.
+List concrete, testable completion criteria using checkbox items.
 
-### Relevant Project Patterns
+### Implementation Strategy
 
-Existing conventions the implementation should follow.
+Provide ordered minimal changes, including the root cause or feature gap, affected Laravel components, and existing project patterns.
 
-### Implementation Plan
+### Test Strategy
 
-Ordered steps with affected files or components.
-
-### Verification
-
-Tests and checks required.
-
-### Risks
-
-Meaningful task-specific risks.
-
-### Out of Scope
-
-Related changes that should not be included.
+List the compatible Laravel tests, verification commands, and meaningful edge cases.
