@@ -20,6 +20,16 @@ describe('Codex profile materializer', () => {
     expect(readGeneratedFilesManifest(tmpDir)?.files['.codex/agents/planner.toml'].content_hash).toMatch(/^[a-f0-9]{64}$/);
   });
 
+  it('renders agent instructions as human-readable TOML multiline strings', () => {
+    applyCodexMaterialization(tmpDir, new ProfileRegistry().resolve('generic'));
+    const planner = fs.readFileSync(path.join(tmpDir, '.codex', 'agents', 'planner.toml'), 'utf8');
+
+    expect(planner).toContain('developer_instructions = """\n');
+    expect(planner).toContain('Read .codex/global-rules.md before starting.');
+    expect(planner).toContain('\n"""\n');
+    expect(planner).not.toMatch(/developer_instructions = "[^\n]+\\n/);
+  });
+
   it('updates an unmodified generated file when selecting another profile', () => {
     applyCodexMaterialization(tmpDir, new ProfileRegistry().resolve('generic'));
     const result = applyCodexMaterialization(tmpDir, new ProfileRegistry().resolve('laravel'));

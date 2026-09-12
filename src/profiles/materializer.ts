@@ -101,7 +101,13 @@ function renderAgent(role: AgentRole, profile: EffectiveProfile): string {
   const instructions = profile.agents[role]
     .map((asset) => `[${asset.source}: ${asset.path}]\n${asset.content.trim()}`)
     .join('\n\n');
-  return `name = ${JSON.stringify(role)}\ndescription = ${JSON.stringify(`${role} instructions generated from the ${profile.id} profile.`)}\nsandbox_mode = ${JSON.stringify(isReadOnlyRole(role) ? 'read-only' : 'workspace-write')}\ndeveloper_instructions = ${JSON.stringify(`Read .codex/global-rules.md before starting.\n\n${instructions}\n`)}\n`;
+  const developerInstructions = `Read .codex/global-rules.md before starting.\n\n${instructions}\n`;
+  return `name = ${JSON.stringify(role)}\ndescription = ${JSON.stringify(`${role} instructions generated from the ${profile.id} profile.`)}\nsandbox_mode = ${JSON.stringify(isReadOnlyRole(role) ? 'read-only' : 'workspace-write')}\ndeveloper_instructions = ${renderTomlMultilineString(developerInstructions)}\n`;
+}
+
+function renderTomlMultilineString(value: string): string {
+  const escaped = value.replace(/\\/g, '\\\\').replace(/\"\"\"/g, '\\\"\"\"');
+  return `\"\"\"\n${escaped}\"\"\"`;
 }
 
 function materializationChange(
