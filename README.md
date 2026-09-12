@@ -73,7 +73,9 @@ Use `lh doctor` to check Node, Git, Codex CLI, and project configuration before 
 
 ### Predefined plans
 
-An exported plan can be supplied to skip the planning stage:
+At the plan-approval prompt, choose `export` to save the generated plan under
+`.largentic/exports/`. An exported plan can later be supplied to skip the
+planner stage:
 
 ```bash
 lh run "Add rate limiting to the login endpoint" \
@@ -81,6 +83,9 @@ lh run "Add rate limiting to the login endpoint" \
 ```
 
 The plan file must be inside `workflow.plan_export_directory`, which defaults to `.largentic/exports`.
+
+When interactive plan approval is enabled, choose `update` to give the planner
+additional direction and generate a revised plan before implementation begins.
 
 ## CLI commands
 
@@ -120,6 +125,7 @@ Each run is stored under `.largentic/runs/<run-id>/`:
         ├── implementation.md
         ├── test-results.md
         ├── review.md
+        ├── requested-changes.md
         └── attempts/
             └── <attempt>/
 ```
@@ -135,7 +141,10 @@ tester      -> test-results.md
 reviewer    -> review.md
 ```
 
-Testing failures retry implementation and testing up to `workflow.max_attempts`. Review rejections retry implementation, testing, and review up to the same limit. Plan approval and review approval are controlled by configuration.
+Testing failures retry implementation and testing up to `workflow.max_attempts`.
+When a reviewer requests changes, the review is saved as `requested-changes.md`
+and the workflow returns to planning before another implementation, test, and
+review cycle. Plan approval and review approval are controlled by configuration.
 
 ## Configuration
 
@@ -154,7 +163,13 @@ workflow:
 
 ## Profiles and migration
 
-Built-in profiles are `generic` and `laravel`; both inherit universal safety rules from `base`. A local profile is authored manually under `.largentic/profiles/<id>/` and must contain a declarative `profile.yaml` plus the Markdown files it references. Largentic does not provide a profile create or scaffold command.
+Built-in profiles are `generic` and `laravel`; both inherit universal safety
+rules and role-specific engineering guidance from `base`. Profiles materialize
+the selected guidance into `.codex/global-rules.md` and the four native-agent
+TOML files. A local profile is authored manually under
+`.largentic/profiles/<id>/` and must contain a declarative `profile.yaml` plus
+the Markdown files it references. Largentic does not provide a profile create
+or scaffold command.
 
 ```text
 .largentic/profiles/example-service/
@@ -195,7 +210,10 @@ Architecture decision records are in `docs/architecture/`. The phased roadmap is
 
 ## Legacy V1
 
-The legacy V1 files live under `harness/` and are not used by the V2 CLI. V2 uses `.largentic/` run state and its own TypeScript engine. The two workflows should be treated as independent during migration and cleanup.
+The legacy V1 `harness/` implementation has been removed. V2 uses
+`.largentic/` run state and its own TypeScript engine; migrate any remaining
+local V1 artifacts to the V2 workflow rather than relying on the retired
+directory structure.
 
 ## License
 
