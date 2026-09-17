@@ -15,6 +15,7 @@ export interface RunPaths {
   manifestFile: string;
   stateFile: string;
   eventsFile: string;
+  summaryFile: string;
   attemptDir: (n: number) => string;
 }
 
@@ -99,6 +100,7 @@ export class RunManager {
       manifestFile: path.join(runDir, 'manifest.json'),
       stateFile:    path.join(runDir, 'state.json'),
       eventsFile:   path.join(runDir, 'events.jsonl'),
+      summaryFile:  path.join(runDir, 'summary.md'),
       attemptDir:   (n: number) => path.join(runDir, 'attempts', String(n)),
     };
   }

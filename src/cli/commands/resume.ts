@@ -12,6 +12,7 @@ import { statusToExitCode } from '../exit-codes.js';
 import { createProvider, resolveProviderName } from '../provider-support.js';
 import type { HarnessConfig, RunState } from '../../types.js';
 import { ensureProjectMemory } from '../../project-memory.js';
+import { tryWriteCycleSummary } from '../../engine/cycle-summary.js';
 
 const REQUIRED_ARTIFACTS: Partial<Record<RunState['status'], string[]>> = {
   awaiting_plan_approval: ['plan.md'],
@@ -76,9 +77,12 @@ export async function resumeCommand(
     });
 
     const finalState = await engine.run();
+    const cycleSummary = tryWriteCycleSummary({ paths, task: manifest.task, state: finalState });
     console.log(`\n${finalState.status === 'approved' ? '✅' : '⏹'} Run ${finalState.status.toUpperCase()}`);
     console.log(`   Run ID: ${runId}`);
     if (finalState.failure_reason) console.log(`   Reason: ${finalState.failure_reason}`);
+    if (cycleSummary.summary) console.log(`\n${cycleSummary.summary}`);
+    if (cycleSummary.error) console.warn(`⚠ Run completed, but its summary could not be written: ${cycleSummary.error}`);
     process.exitCode = statusToExitCode(finalState.status);
   } catch (error: unknown) {
     console.error(`❌ ${error instanceof Error ? error.message : String(error)}`);

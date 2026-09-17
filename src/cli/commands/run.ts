@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { HARNESS_DIR_NAME, HARNESS_NAME_WITH_VERSION } from '../../constants.js';
 import { ensureProjectMemory } from '../../project-memory.js';
+import { tryWriteCycleSummary } from '../../engine/cycle-summary.js';
 
 export async function runCommand(
   task: string | undefined,
@@ -133,6 +134,7 @@ export async function runCommand(
   });
 
   const finalState = await engine.run();
+  const cycleSummary = tryWriteCycleSummary({ paths, task: resolvedTask, state: finalState });
 
   const icons: Record<string, string> = {
     approved: '✅',
@@ -144,6 +146,8 @@ export async function runCommand(
   console.log(`\n${icon} Run ${finalState.status.toUpperCase()}`);
   console.log(`   Run ID: ${runId}`);
   if (finalState.failure_reason) console.log(`   Reason: ${finalState.failure_reason}`);
+  if (cycleSummary.summary) console.log(`\n${cycleSummary.summary}`);
+  if (cycleSummary.error) console.warn(`⚠ Run completed, but its summary could not be written: ${cycleSummary.error}`);
   console.log(`\n  lh report ${runId}   — to view the full report`);
   console.log(`  lh inspect ${runId}  — to inspect artifacts\n`);
 

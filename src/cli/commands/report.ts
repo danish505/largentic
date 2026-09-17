@@ -21,7 +21,7 @@ export function reportCommand(runId: string, cwd: string): void {
       ['stage_complete', 'stage_failed'].includes(e.type)
     );
 
-    const artifactFiles = ['plan.md', 'implementation.md', 'test-results.md', 'review.md'];
+    const artifactFiles = ['plan.md', 'implementation.md', 'test-results.md', 'review.md', 'summary.md'];
     const artifacts = artifactFiles
       .filter((f) => fs.existsSync(require('path').join(runDir, f)))
       .map((f) => `  - ${f}`);

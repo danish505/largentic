@@ -129,12 +129,13 @@ Each run is stored under `.largentic/runs/<run-id>/`:
         ├── implementation.md
         ├── test-results.md
         ├── review.md
+        ├── summary.md
         ├── requested-changes.md
         └── attempts/
             └── <attempt>/
 ```
 
-The run-root Markdown files are the current handoff artifacts. Attempt directories preserve stage results from individual retries. State writes are atomic, and the event log records stage transitions, approvals, retries, and termination.
+The run-root Markdown files are the current handoff artifacts. `summary.md` is generated and printed when a run completes, with a brief changes, verification, and review handoff. Attempt directories preserve stage results from individual retries. State writes are atomic, and the event log records stage transitions, approvals, retries, and termination.
 
 The workflow is:
 
