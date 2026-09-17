@@ -11,6 +11,7 @@ import { Spinner } from '../../ui/spinner.js';
 import { statusToExitCode } from '../exit-codes.js';
 import { createProvider, resolveProviderName } from '../provider-support.js';
 import type { HarnessConfig, RunState } from '../../types.js';
+import { ensureProjectMemory } from '../../project-memory.js';
 
 const REQUIRED_ARTIFACTS: Partial<Record<RunState['status'], string[]>> = {
   awaiting_plan_approval: ['plan.md'],
@@ -60,6 +61,7 @@ export async function resumeCommand(
     }
 
     console.log(`\n⏩ Resuming run ${runId} from ${resumeState.status}.`);
+    ensureProjectMemory(cwd);
     const engine = new WorkflowEngine({
       config: { ...config, provider: providerName },
       provider: createProvider(providerName, cwd),

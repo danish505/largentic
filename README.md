@@ -44,6 +44,7 @@ lh init --profile example-service
 ```text
 .largentic/config.yaml
 .largentic/task.md
+.largentic/memory.md
 .largentic/runs/
 .codex/config.toml
 .codex/global-rules.md
@@ -54,6 +55,8 @@ lh init --profile example-service
 ```
 
 Edit `.largentic/config.yaml` and `.largentic/task.md` for the project. The generated `.codex/` files define the native Codex agents used by the V2 workflow.
+
+`.largentic/memory.md` is durable, compact project knowledge for Codex. Agents read it before work; the implementer maintains it after verified work by retaining useful facts and pruning stale, duplicate, vague, or contradicted entries. It must never contain secrets, task-specific plans, raw logs, or run state.
 
 ## Running a task
 
@@ -115,6 +118,7 @@ Each run is stored under `.largentic/runs/<run-id>/`:
 .largentic/
 ├── config.yaml
 ├── task.md
+├── memory.md
 ├── exports/
 └── runs/
     └── <run-id>/

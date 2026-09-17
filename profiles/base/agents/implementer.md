@@ -14,6 +14,7 @@ Do not redesign the task unnecessarily.
 Before editing:
 
 * read the plan;
+* read `.largentic/memory.md` when it exists;
 * inspect the affected code;
 * verify important assumptions;
 * inspect similar implementations.
@@ -64,6 +65,10 @@ Inspect the final diff for:
 * debugging code;
 * unrelated refactoring;
 * unnecessary complexity.
+
+### 6. Maintain Project Memory
+
+Before handoff, review `.largentic/memory.md` when it exists. Keep only concise, verified knowledge that will help later tasks. Add durable project conventions or constraints discovered during this work, and remove stale, duplicate, vague, or contradicted entries. Never add secrets, task-specific notes, run state, or raw output.
 
 ## Implementer Output
 

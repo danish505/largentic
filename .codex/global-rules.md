@@ -30,3 +30,11 @@ Global rules:
 - follow project-specific patterns, folder structure, naming, and coding standards
 - prefer extending existing implementation patterns over introducing new abstractions without strong justification
 - call out when proposed work would deviate from the current project approach
+
+## Project Memory
+
+Read `.largentic/memory.md` before planning, implementing, testing, or reviewing when it exists. Treat repository evidence as the source of truth when it differs from memory.
+
+Memory contains concise, verified, durable project knowledge only: architecture decisions, conventions, reliable commands, and non-obvious operational constraints. Never store secrets, credentials, personal data, raw logs, temporary debugging notes, task-specific plans, or run state.
+
+After completing work, the implementer maintains memory: retain useful verified entries, add newly confirmed reusable knowledge, and remove entries that are stale, duplicated, vague, or contradicted by repository evidence. Do not rewrite memory solely for formatting.

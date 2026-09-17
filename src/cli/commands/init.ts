@@ -4,6 +4,7 @@ import { detectProfile } from '../../profiles/detector.js';
 import { HARNESS_DIR_NAME, HARNESS_NAME_WITH_VERSION } from '../../constants.js';
 import { applyCodexMaterialization } from '../../profiles/materializer.js';
 import { createProjectProfileRegistry } from '../../profiles/registry.js';
+import { ensureProjectMemory } from '../../project-memory.js';
 
 const CONFIG_TEMPLATE = `# ${HARNESS_NAME_WITH_VERSION} Configuration
 # https://github.com/danish505/OpenHarness
@@ -78,12 +79,14 @@ export function initCommand(cwd: string, options: { profile?: string } = {}): vo
   if (!fs.existsSync(taskPath)) {
     fs.writeFileSync(taskPath, '# Task\n\nReplace this with your task description. This file is used when you run `lh run` without an inline prompt.\n', 'utf8');
   }
+  const memoryPath = ensureProjectMemory(cwd);
 
   const materialization = applyCodexMaterialization(cwd, profile);
 
   console.log(`✓ Initialized ${HARNESS_NAME_WITH_VERSION}`);
   console.log(`  Config:    ${configPath}`);
   console.log(`  Task file: ${taskPath}  (edit to define your default task)`);
+  console.log(`  Memory:    ${memoryPath}  (durable project knowledge for Codex)`);
   console.log(`  Profile: ${profileId}${options.profile ? ' (explicit)' : ' (detected)'}`);
   detection.hints.forEach((h) => console.log(`    • ${h}`));
   materialization.changes.forEach((change) => console.log(`  Codex ${change.action}: ${change.path}${change.reason ? ` (${change.reason})` : ''}`));

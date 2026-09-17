@@ -11,6 +11,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { HARNESS_DIR_NAME, HARNESS_NAME_WITH_VERSION } from '../../constants.js';
+import { ensureProjectMemory } from '../../project-memory.js';
 
 export async function runCommand(
   task: string | undefined,
@@ -102,6 +103,7 @@ export async function runCommand(
   } catch { /* not a git repo or no commits */ }
 
   const manager = new RunManager(cwd);
+  ensureProjectMemory(cwd);
   const { runId, paths } = manager.create(resolvedTask, {
     profile: config.profile,
     provider: providerName,

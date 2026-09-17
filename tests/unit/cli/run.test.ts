@@ -106,6 +106,7 @@ describe('runCommand', () => {
 
     const engineOptions = workflowEngineCtor.mock.calls[0][0] as { provider: unknown };
     expect(engineOptions.provider).toBeInstanceOf(FakeProvider);
+    expect(fs.readFileSync(path.join(tmpDir, '.largentic', 'memory.md'), 'utf8')).toContain('## Entries');
   });
 
   it('fails early when codex is selected but unavailable', async () => {
