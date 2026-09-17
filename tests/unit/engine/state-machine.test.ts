@@ -37,6 +37,13 @@ describe('state-machine', () => {
       expect(isValidTransition('testing_failed', 'implementing')).toBe(true);
     });
 
+    it('requires a decision after reviewing', () => {
+      expect(isValidTransition('reviewing', 'awaiting_review_approval')).toBe(true);
+      expect(isValidTransition('awaiting_review_approval', 'approved')).toBe(true);
+      expect(isValidTransition('awaiting_review_approval', 'review_rejected')).toBe(true);
+      expect(isValidTransition('awaiting_review_approval', 'cancelled')).toBe(true);
+    });
+
     it('allows review_rejected → planning (replan)', () => {
       expect(isValidTransition('review_rejected', 'planning')).toBe(true);
     });
@@ -96,8 +103,8 @@ describe('state-machine', () => {
       expect(getNextStageStatus('testing', 'success')).toBe('reviewing');
     });
 
-    it('reviewing success → approved', () => {
-      expect(getNextStageStatus('reviewing', 'success')).toBe('approved');
+    it('reviewing success → awaiting_review_approval', () => {
+      expect(getNextStageStatus('reviewing', 'success')).toBe('awaiting_review_approval');
     });
 
     it('testing failure → testing_failed', () => {

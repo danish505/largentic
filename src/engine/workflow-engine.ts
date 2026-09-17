@@ -11,6 +11,7 @@ import type {
 import { EventLogger } from '../telemetry/event-logger.js';
 import { StateStore } from '../state/state-store.js';
 import { RunLock } from '../state/run-lock.js';
+import { clearCancellationRequest, isCancellationRequested } from '../state/cancellation-request.js';
 import { ApprovalGate } from './approval-gate.js';
 import {
   getNextStageStatus,
@@ -35,6 +36,10 @@ export interface WorkflowEngineOptions {
   approvalGate?: ApprovalGate;
   /** Optional initial plan text to skip planning stage. */
   initialPlan?: string;
+  /** Original status supplied by `lh resume`; logged only after the run lock is acquired. */
+  resumedFromStatus?: RunState['status'];
+  /** Restore the saved stage of a cooperatively cancelled run after locking it. */
+  resumeCancelled?: boolean;
 }
 
 const STAGE_TO_ARTIFACT: Record<Stage, string> = {
@@ -79,6 +84,31 @@ export class WorkflowEngine {
     const { config, provider, runId, task } = this.opts;
     let state = this.store.read();
 
+    if (this.opts.resumeCancelled) {
+      state = this.store.resumeCancelled();
+      this.logger.stateTransition(runId, 'cancelled', state.status, 'human');
+    }
+
+    if (this.opts.resumedFromStatus) {
+      this.logger.log('run_resumed', {
+        run_id: runId,
+        previous_status: this.opts.resumedFromStatus,
+        actor: 'human',
+      });
+    }
+
+    state = this.reconcileCompletedStage(state);
+    if (isTerminal(state.status)) return state;
+    const initialCancellation = this.cancelIfRequested(state);
+    if (initialCancellation) return initialCancellation;
+
+    if (state.status === 'awaiting_review_approval') {
+      state = await this.finalizeReviewApproval();
+      if (isTerminal(state.status)) return state;
+      state = await this.planUntilApproved(state, provider, task, this.readArtifact('requested-changes.md'));
+      if (isTerminal(state.status)) return state;
+    }
+
     if (this.opts.initialPlan && state.status === 'created') {
       const planResult: StageResult = {
         schema_version: '2.0',
@@ -110,6 +140,9 @@ export class WorkflowEngine {
 
     // ── Implement → Test → Review repair loop ────────────────────────────────
     for (let attempt = state.attempt; attempt < config.workflow.max_attempts; attempt++) {
+      const cancellationAtBoundary = this.cancelIfRequested(state);
+      if (cancellationAtBoundary) return cancellationAtBoundary;
+
       // Implementing
       if (!['testing', 'testing_failed', 'reviewing', 'review_rejected'].includes(state.status)) {
         state = this.enterStage('implementing', state, runId);
@@ -129,6 +162,8 @@ export class WorkflowEngine {
         }
         this.logger.stageComplete(runId, 'implementing', attempt + 1, implResult.summary);
         state = this.store.transition('testing', { actor: 'system' });
+        const cancellation = this.cancelIfRequested(state);
+        if (cancellation) return cancellation;
       }
 
       // Testing
@@ -153,6 +188,8 @@ export class WorkflowEngine {
         }
         this.logger.stageComplete(runId, 'testing', attempt + 1, testResult.summary);
         state = this.store.transition('reviewing', { actor: 'system' });
+        const cancellation = this.cancelIfRequested(state);
+        if (cancellation) return cancellation;
       }
 
       // Reviewing
@@ -179,8 +216,14 @@ export class WorkflowEngine {
       }
 
       this.logger.stageComplete(runId, 'reviewing', attempt + 1, reviewResult.summary);
-      state = this.store.transition('approved', { actor: 'reviewer' });
-      return state;
+      state = this.store.transition('awaiting_review_approval', { actor: 'reviewer' });
+      const cancellationAfterReview = this.cancelIfRequested(state);
+      if (cancellationAfterReview) return cancellationAfterReview;
+      state = await this.finalizeReviewApproval();
+      if (isTerminal(state.status)) return state;
+      state = await this.planUntilApproved(state, provider, task, this.readArtifact('requested-changes.md'));
+      if (isTerminal(state.status)) return state;
+      continue;
     }
 
     // Should not reach here, but guard anyway
@@ -201,29 +244,36 @@ export class WorkflowEngine {
     let planUpdateNotes: string | undefined;
 
     while (true) {
-      state = this.enterStage('planning', state, runId);
-      const planResult = await this.runStage('planning', state, provider, task, {
-        previousPlan,
-        planUpdateNotes,
-        reviewFeedback,
-      });
+      const cancellation = this.cancelIfRequested(state);
+      if (cancellation) return cancellation;
+      let currentPlan: string;
+      if (state.status === 'awaiting_plan_approval') {
+        currentPlan = this.readArtifact(STAGE_TO_ARTIFACT.planning);
+      } else {
+        state = this.enterStage('planning', state, runId);
+        const planResult = await this.runStage('planning', state, provider, task, {
+          previousPlan,
+          planUpdateNotes,
+          reviewFeedback,
+        });
 
-      if (planResult.status !== 'success') {
-        state = this.store.transition('failed', { actor: 'planner', failureReason: planResult.failure_classification ?? 'planning failed' });
-        this.logger.termination(runId, 'Planning failed', 'failed');
-        return state;
+        if (planResult.status !== 'success') {
+          state = this.store.transition('failed', { actor: 'planner', failureReason: planResult.failure_classification ?? 'planning failed' });
+          this.logger.termination(runId, 'Planning failed', 'failed');
+          return state;
+        }
+
+        this.writeArtifact('planning', state, planResult);
+        this.logger.stageComplete(runId, 'planning', state.attempt + 1, planResult.summary);
+        state = this.store.transition('awaiting_plan_approval', { actor: 'planner' });
+        currentPlan = this.readArtifact(STAGE_TO_ARTIFACT.planning);
       }
-
-      this.writeArtifact('planning', state, planResult);
-      this.logger.stageComplete(runId, 'planning', state.attempt + 1, planResult.summary);
-      state = this.store.transition('awaiting_plan_approval', { actor: 'planner' });
 
       if (config.workflow.plan_approval !== 'required' || this.opts.autoApprove) {
         return this.store.transition('implementing', { actor: 'system' });
       }
 
       this.logger.approvalRequest(runId, 'planning');
-      const currentPlan = this.readArtifact(STAGE_TO_ARTIFACT.planning);
       if (this.opts.reporter) {
         this.opts.reporter.approvalBanner(currentPlan);
       } else {
@@ -234,6 +284,8 @@ export class WorkflowEngine {
       let decision: ApprovalDecision;
       while (true) {
         decision = await this.gate.requestApproval('');
+        const cancellation = this.cancelIfRequested(this.store.read());
+        if (cancellation) return cancellation;
         this.logger.approvalDecision(runId, decision, 'human');
         if (decision === 'exported') {
           const exported = await this.exportPlan(currentPlan);
@@ -251,7 +303,10 @@ export class WorkflowEngine {
         break;
       }
 
-      if (decision === 'update') continue;
+      if (decision === 'update') {
+        state = this.store.transition('planning', { actor: 'human' });
+        continue;
+      }
       if (decision !== 'approved') {
         state = this.store.transition('cancelled', { actor: 'human', failureReason: decision === 'rejected' ? 'Plan rejected by user' : 'User cancelled' });
         this.logger.termination(runId, `Plan ${decision} by user`, 'cancelled');
@@ -259,6 +314,58 @@ export class WorkflowEngine {
       }
       return this.store.transition('implementing', { actor: 'system' });
     }
+  }
+
+  private async finalizeReviewApproval(): Promise<RunState> {
+    const { config, runId } = this.opts;
+    if (config.workflow.review_approval !== 'required' || this.opts.autoApprove) {
+      return this.store.transition('approved', { actor: 'system' });
+    }
+
+    const review = this.readArtifact(STAGE_TO_ARTIFACT.reviewing);
+    this.logger.approvalRequest(runId, 'reviewing');
+    if (this.opts.reporter) {
+      this.opts.reporter.finalReviewApprovalBanner(review);
+    } else {
+      process.stdout.write(`\n  ✋ Final review requires approval.\n`);
+      process.stdout.write(`Review:\n${'─'.repeat(60)}\n${review}\n${'─'.repeat(60)}\n`);
+    }
+
+    const decision = await this.gate.requestFinalReviewApproval();
+    const cancellation = this.cancelIfRequested(this.store.read());
+    if (cancellation) return cancellation;
+    this.logger.approvalDecision(runId, decision, 'human');
+    if (decision === 'approved') {
+      return this.store.transition('approved', { actor: 'human' });
+    }
+    if (decision === 'cancelled') {
+      const cancelled = this.store.transition('cancelled', { actor: 'human', failureReason: 'Final review approval cancelled by user' });
+      this.logger.termination(runId, 'Final review approval cancelled by user', 'cancelled');
+      return cancelled;
+    }
+
+    const notes = await this.gate.requestFinalReviewRejection();
+    const feedback = notes
+      ? `${review}\n\n## Final approval feedback\n\n${notes}\n`
+      : review;
+    this.writeRequestedChanges(feedback);
+    return this.store.transition('review_rejected', {
+      actor: 'human',
+      failureReason: notes || 'Final review rejected by user',
+    });
+  }
+
+  private cancelIfRequested(state: RunState): RunState | null {
+    if (!isCancellationRequested(this.opts.paths.runDir)) return null;
+
+    clearCancellationRequest(this.opts.paths.runDir);
+    const cancelled = this.store.transition('cancelled', {
+      actor: 'human',
+      failureReason: 'Cancellation requested by user',
+      resumeStatus: state.status,
+    });
+    this.logger.termination(state.run_id, 'Cancellation request processed at a safe stage boundary', 'cancelled');
+    return cancelled;
   }
 
   private enterStage(stage: Stage, state: RunState, runId: string): RunState {
@@ -369,15 +476,76 @@ export class WorkflowEngine {
     fs.mkdirSync(attemptDir, { recursive: true });
 
     const artifactName = STAGE_TO_ARTIFACT[stage];
+    const resultPath = this.checkpointPath(stage, state);
+    this.writeAtomic(resultPath, JSON.stringify(result, null, 2));
+
     const artifactPath = path.join(attemptDir, artifactName);
     fs.writeFileSync(artifactPath, result.content, 'utf8');
+    fs.writeFileSync(path.join(this.opts.paths.runDir, artifactName), result.content, 'utf8');
+  }
 
-    // Also write to run root for easy access
+  /**
+   * A successful stage-result file is the durable completion checkpoint. It is
+   * written before presentation artifacts, so recovery can restore artifacts
+   * and advance state without invoking the provider a second time.
+   */
+  private reconcileCompletedStage(state: RunState): RunState {
+    const stage = this.stageAwaitingRecovery(state.status);
+    if (!stage) return state;
+
+    const resultPath = this.checkpointPath(stage, state);
+    if (!fs.existsSync(resultPath)) return state;
+
+    let result: StageResult;
+    try {
+      result = JSON.parse(fs.readFileSync(resultPath, 'utf8')) as StageResult;
+    } catch {
+      throw new Error(`Run ${state.run_id} has an unreadable ${stage} completion checkpoint.`);
+    }
+
+    if (result.run_id !== state.run_id || result.stage !== stage || result.attempt !== state.attempt + 1) {
+      throw new Error(`Run ${state.run_id} has an inconsistent ${stage} completion checkpoint.`);
+    }
+    if (result.status !== 'success' || !result.content.trim()) return state;
+
+    const artifactName = STAGE_TO_ARTIFACT[stage];
+    const attemptArtifact = path.join(this.opts.paths.attemptDir(state.attempt + 1), artifactName);
+    if (!fs.existsSync(attemptArtifact)) fs.writeFileSync(attemptArtifact, result.content, 'utf8');
     fs.writeFileSync(path.join(this.opts.paths.runDir, artifactName), result.content, 'utf8');
 
-    // Write stage result JSON
-    const resultPath = path.join(attemptDir, `${stage}-result.json`);
-    fs.writeFileSync(resultPath, JSON.stringify(result, null, 2), 'utf8');
+    const next = stage === 'reviewing' && requestsChanges(result.content)
+      ? 'review_rejected'
+      : getNextStageStatus(state.status, 'success');
+    if (next === 'review_rejected') this.writeRequestedChanges(result.content);
+    const recovered = this.store.transition(next, { actor: 'recovery' });
+    this.logger.log('stage_checkpoint_recovered', {
+      run_id: state.run_id,
+      stage,
+      attempt: result.attempt,
+      from: state.status,
+      to: next,
+    });
+    return recovered;
+  }
+
+  private stageAwaitingRecovery(status: RunState['status']): Stage | null {
+    switch (status) {
+      case 'planning': return 'planning';
+      case 'implementing': return 'implementing';
+      case 'testing': return 'testing';
+      case 'reviewing': return 'reviewing';
+      default: return null;
+    }
+  }
+
+  private checkpointPath(stage: Stage, state: RunState): string {
+    return path.join(this.opts.paths.attemptDir(state.attempt + 1), `${stage}-result.json`);
+  }
+
+  private writeAtomic(target: string, content: string): void {
+    const temporary = `${target}.${process.pid}.tmp`;
+    fs.writeFileSync(temporary, content, 'utf8');
+    fs.renameSync(temporary, target);
   }
 
   private writeRequestedChanges(review: string): void {

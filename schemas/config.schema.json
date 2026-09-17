@@ -72,24 +72,27 @@
       "properties": {
         "require_tests": {
           "type": "boolean",
-          "default": true
+          "default": true,
+          "description": "Reserved in V2 alpha; accepted but not enforced."
         },
         "require_clean_secrets_scan": {
           "type": "boolean",
-          "default": true
+          "default": true,
+          "description": "Reserved in V2 alpha; accepted but not enforced."
         },
         "max_changed_files": {
           "type": "integer",
           "minimum": 1,
-          "default": 25
+          "default": 25,
+          "description": "Reserved in V2 alpha; planned for V2.1."
         },
         "test_command": {
           "type": "string",
-          "description": "Command to run tests. Overrides profile default."
+          "description": "Reserved in V2 alpha; accepted but not enforced."
         },
         "build_command": {
           "type": "string",
-          "description": "Command to run build/lint. Overrides profile default."
+          "description": "Reserved in V2 alpha; accepted but not enforced."
         }
       }
     },
@@ -100,12 +103,14 @@
         "max_runtime_minutes": {
           "type": "number",
           "minimum": 1,
-          "default": 45
+          "default": 45,
+          "description": "Reserved in V2 alpha; planned for V2.1."
         },
         "max_estimated_cost_usd": {
           "type": "number",
           "minimum": 0,
-          "default": 10
+          "default": 10,
+          "description": "Reserved in V2 alpha until accurate pricing is available."
         }
       }
     },
@@ -123,14 +128,17 @@
       "properties": {
         "provider": {
           "type": "string",
-          "enum": ["codex", "fake"]
+          "enum": ["codex", "fake"],
+          "description": "Reserved in V2 alpha; use the top-level provider setting."
         },
         "reasoning": {
           "type": "string",
-          "enum": ["low", "medium", "high"]
+          "enum": ["low", "medium", "high"],
+          "description": "Reserved in V2 alpha; accepted but not enforced."
         },
         "system_prompt_override": {
-          "type": "string"
+          "type": "string",
+          "description": "Additional system instructions applied to this agent."
         }
       }
     }

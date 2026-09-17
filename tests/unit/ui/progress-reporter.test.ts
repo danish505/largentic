@@ -79,4 +79,16 @@ describe('ProgressReporter', () => {
     expect(combined).toContain('retrying');
     expect(combined).toContain('attempt 2');
   });
+
+  it('renders a distinct final-review approval banner', () => {
+    const writes: string[] = [];
+    const origWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((s: string) => { writes.push(s); return true; }) as typeof process.stdout.write;
+
+    reporter.finalReviewApprovalBanner('## Review\n\nApproved');
+
+    process.stdout.write = origWrite;
+    expect(writes.join('')).toContain('Final review ready');
+    expect(writes.join('')).toContain('Approved');
+  });
 });

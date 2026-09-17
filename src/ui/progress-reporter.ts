@@ -50,10 +50,18 @@ export class ProgressReporter {
   }
 
   approvalBanner(plan: string): void {
+    this.approvalArtifactBanner('Plan ready — review before proceeding', plan);
+  }
+
+  finalReviewApprovalBanner(review: string): void {
+    this.approvalArtifactBanner('Final review ready — approve before completing', review);
+  }
+
+  private approvalArtifactBanner(message: string, artifact: string): void {
     process.stdout.write('\n');
-    process.stdout.write(`  \x1b[33m✋  Plan ready — review before proceeding\x1b[0m\n`);
+    process.stdout.write(`  \x1b[33m✋  ${message}\x1b[0m\n`);
     process.stdout.write(`  ${'─'.repeat(60)}\n`);
-    const lines = plan.split('\n');
+    const lines = artifact.split('\n');
     for (const line of lines) {
       process.stdout.write(`  ${line}\n`);
     }

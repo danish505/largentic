@@ -22,7 +22,7 @@ export class StateStore {
   /** Atomically write new state after validating the transition. */
   transition(
     to: RunStatus,
-    options: { actor?: string; failureReason?: string } = {}
+    options: { actor?: string; failureReason?: string; resumeStatus?: RunStatus } = {}
   ): RunState {
     const current = this.read();
     assertValidTransition(current.status, to);
@@ -34,8 +34,27 @@ export class StateStore {
       updated_at: new Date().toISOString(),
       transition_actor: options.actor ?? 'system',
       failure_reason: options.failureReason,
+      resume_status: options.resumeStatus,
     };
 
+    this.atomicWrite(next);
+    return next;
+  }
+
+  /** Restore a run cancelled by the cooperative cancellation flow. */
+  resumeCancelled(): RunState {
+    const current = this.read();
+    if (current.status !== 'cancelled' || !current.resume_status) {
+      throw new Error('Only a cooperatively cancelled run can be resumed.');
+    }
+    const next: RunState = {
+      ...current,
+      status: current.resume_status,
+      updated_at: new Date().toISOString(),
+      transition_actor: 'human',
+      failure_reason: undefined,
+      resume_status: undefined,
+    };
     this.atomicWrite(next);
     return next;
   }

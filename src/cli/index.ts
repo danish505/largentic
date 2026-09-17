@@ -5,6 +5,7 @@ import { doctorCommand } from './commands/doctor.js';
 import { configValidateCommand, configShowCommand } from './commands/config.js';
 import { runCommand } from './commands/run.js';
 import { statusCommand, inspectCommand, cancelCommand } from './commands/status.js';
+import { resumeCommand } from './commands/resume.js';
 import { reportCommand } from './commands/report.js';
 import { profileApplyCommand, profileDetectCommand, profileDiffCommand, profileListCommand, profileRefreshCommand, profileShowCommand } from './commands/profile.js';
 import { HARNESS_DIR_NAME, HARNESS_NAME_WITH_VERSION } from '../constants.js';
@@ -64,6 +65,15 @@ program
   .command('status <run-id>')
   .description('Show the current status of a run')
   .action((runId: string) => statusCommand(runId, cwd));
+
+program
+  .command('resume <run-id>')
+  .description('Resume an interrupted or paused run in the same run directory')
+  .option('--auto-approve', 'Skip interactive approval prompts (for scripting)')
+  .option('--provider <name>', 'Override the original provider (codex | fake)')
+  .action(async (runId: string, opts: { autoApprove?: boolean; provider?: string }) => {
+    await resumeCommand(runId, cwd, opts);
+  });
 
 program
   .command('inspect <run-id>')

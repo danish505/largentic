@@ -161,6 +161,14 @@ workflow:
   plan_export_directory: .largentic/exports
 ```
 
+### Configuration availability
+
+V2 alpha enforces `workflow.max_attempts`, plan and review approval,
+`workflow.plan_export_directory`, the top-level `provider`, and
+`agents.*.system_prompt_override`. The following accepted settings are marked
+**reserved** and have no runtime effect yet: per-agent `provider` and
+`reasoning`, all `quality_gates` settings, and both `budget` settings.
+
 ## Profiles and migration
 
 Built-in profiles are `generic` and `laravel`; both inherit universal safety

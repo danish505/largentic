@@ -9,7 +9,8 @@ const TRANSITIONS: TransitionMap = {
   implementing:            ['testing', 'blocked', 'failed', 'cancelled'],
   testing:                 ['reviewing', 'testing_failed', 'failed', 'cancelled'],
   testing_failed:          ['implementing', 'failed', 'cancelled'],
-  reviewing:               ['approved', 'review_rejected', 'failed', 'cancelled'],
+  reviewing:               ['awaiting_review_approval', 'review_rejected', 'failed', 'cancelled'],
+  awaiting_review_approval:['approved', 'review_rejected', 'cancelled'],
   review_rejected:         ['planning', 'failed', 'cancelled'],
 };
 
@@ -48,7 +49,7 @@ export function getNextStageStatus(
     case 'planning':        return 'awaiting_plan_approval';
     case 'implementing':    return 'testing';
     case 'testing':         return 'reviewing';
-    case 'reviewing':       return 'approved';
+    case 'reviewing':       return 'awaiting_review_approval';
     default:                return 'failed';
   }
 }

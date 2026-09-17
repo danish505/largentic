@@ -106,8 +106,8 @@ function renderAgent(role: AgentRole, profile: EffectiveProfile): string {
 }
 
 function renderTomlMultilineString(value: string): string {
-  const escaped = value.replace(/\\/g, '\\\\').replace(/\"\"\"/g, '\\\"\"\"');
-  return `\"\"\"\n${escaped}\"\"\"`;
+  const escaped = value.replace(/\\/g, '\\\\').replace(/"""/g, '\\"""');
+  return `"""\n${escaped}"""`;
 }
 
 function materializationChange(

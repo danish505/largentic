@@ -8,6 +8,7 @@ export type RunStatus =
   | 'testing'
   | 'testing_failed'
   | 'reviewing'
+  | 'awaiting_review_approval'
   | 'review_rejected'
   | 'approved'
   | 'cancelled'
@@ -32,6 +33,8 @@ export interface RunState {
   updated_at: string;
   failure_reason?: string;
   transition_actor?: string;
+  /** Status to restore when a user resumes a cooperatively cancelled run. */
+  resume_status?: RunStatus;
 }
 
 export interface RunManifest {
@@ -140,6 +143,7 @@ export interface GateResult {
 }
 
 export type ApprovalDecision = 'approved' | 'rejected' | 'cancelled' | 'exported' | 'update';
+export type FinalReviewDecision = Extract<ApprovalDecision, 'approved' | 'rejected' | 'cancelled'>;
 
 export interface AgentProvider {
   execute(request: AgentRequest): Promise<AgentResult>;

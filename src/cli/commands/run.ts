@@ -1,14 +1,12 @@
 import { RunManager } from '../../engine/run-manager.js';
 import { WorkflowEngine } from '../../engine/workflow-engine.js';
-import { FakeProvider } from '../../providers/fake-provider.js';
-import { CodexProvider } from '../../providers/codex-provider.js';
 import { getCodexCliAvailabilityError } from '../../providers/codex-cli.js';
 import { getCodexProjectConfigError } from '../../providers/codex-preflight.js';
 import { loadConfig, findConfigPath } from '../../config/loader.js';
 import { ProgressReporter } from '../../ui/progress-reporter.js';
 import { Spinner } from '../../ui/spinner.js';
-import type { AgentProvider, HarnessConfig } from '../../types.js';
 import { statusToExitCode } from '../exit-codes.js';
+import { createProvider, resolveProviderName } from '../provider-support.js';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -173,27 +171,4 @@ function resolveTask(inline: string | undefined, cwd: string): string | null {
 
   console.log(`📄 Using task from ${HARNESS_DIR_NAME}/task.md`);
   return content;
-}
-
-function resolveProviderName(
-  configProvider: HarnessConfig['provider'],
-  override?: string
-): HarnessConfig['provider'] | null {
-  if (!override) {
-    return configProvider;
-  }
-
-  if (override === 'codex' || override === 'fake') {
-    return override;
-  }
-
-  return null;
-}
-
-function createProvider(providerName: HarnessConfig['provider'], cwd: string): AgentProvider {
-  if (providerName === 'fake') {
-    return new FakeProvider();
-  }
-
-  return new CodexProvider({ cwd });
 }

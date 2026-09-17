@@ -1,7 +1,8 @@
 import * as fs from 'fs';
-import * as path from 'path';
 import { RunManager } from '../../engine/run-manager.js';
 import { StateStore } from '../../state/state-store.js';
+import { RunLock } from '../../state/run-lock.js';
+import { requestCancellation } from '../../state/cancellation-request.js';
 import { EventLogger } from '../../telemetry/event-logger.js';
 
 export function statusCommand(runId: string, cwd: string): void {
@@ -65,32 +66,28 @@ export function cancelCommand(runId: string, cwd: string): void {
       return;
     }
 
-    store.transition('cancelled', { actor: 'human', failureReason: 'Cancelled by user' });
-    logger.termination(runId, 'Cancelled by user via lh cancel', 'cancelled');
-
-    // Release lock if held
-    const lockFile = path.join(runDir, '.lock');
-    if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
+    const lock = new RunLock(runDir);
+    if (lock.isHeldByLiveProcess()) {
+      requestCancellation(runDir);
+      logger.log('cancellation_requested', { run_id: runId, actor: 'human' });
+      console.log(`⏳ Cancellation requested for run ${runId}. It will stop at the next safe stage boundary.`);
+      return;
+    }
+    lock.acquire();
+    try {
+      store.transition('cancelled', {
+        actor: 'human',
+        failureReason: 'Cancelled by user',
+        resumeStatus: state.status,
+      });
+      logger.termination(runId, 'Cancelled by user via lh cancel', 'cancelled');
+    } finally {
+      lock.release();
+    }
 
     console.log(`✅ Run ${runId} cancelled.`);
   } catch (e: unknown) {
     console.error(`❌ ${e instanceof Error ? e.message : String(e)}`);
     process.exitCode = 1;
   }
-}
-
-export function resumeCommand(runId: string, cwd: string, options: { autoApprove?: boolean } = {}): void {
-  // Resume is handled by runCommand loading existing run state
-  // For now, delegate to the workflow engine via run command
-  const { runCommand } = require('./run.js');
-  const manager = new RunManager(cwd);
-  const { runDir, paths } = manager.load(runId);
-  const state = new StateStore(runDir).read();
-  const manifest = JSON.parse(fs.readFileSync(paths.manifestFile, 'utf8'));
-
-  console.log(`\n⏩ Resuming run ${runId} from state: ${state.status}`);
-  runCommand(manifest.task, cwd, options).catch((e: Error) => {
-    console.error(`❌ Resume failed: ${e.message}`);
-    process.exitCode = 6;
-  });
 }

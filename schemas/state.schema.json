@@ -3,7 +3,7 @@
   "$id": "https://largentic/schemas/state.schema.json",
   "title": "Largentic Run State",
   "type": "object",
-  "required": ["schema_version", "run_id", "status", "attempt", "updated_at"],
+  "required": ["schema_version", "run_id", "status", "attempt", "created_at", "updated_at"],
   "additionalProperties": false,
   "properties": {
     "schema_version": {
@@ -24,6 +24,7 @@
         "testing",
         "testing_failed",
         "reviewing",
+        "awaiting_review_approval",
         "review_rejected",
         "approved",
         "cancelled",
@@ -51,6 +52,11 @@
     "transition_actor": {
       "type": "string",
       "description": "What caused the last transition: agent name, 'human', or 'system'."
+    },
+    "resume_status": {
+      "type": "string",
+      "enum": ["created", "planning", "awaiting_plan_approval", "implementing", "testing", "testing_failed", "reviewing", "awaiting_review_approval", "review_rejected"],
+      "description": "Non-terminal status restored by lh resume after cooperative cancellation."
     }
   }
 }

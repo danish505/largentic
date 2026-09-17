@@ -82,4 +82,33 @@ describe('ApprovalGate', () => {
       await expect(gate.requestPlanUpdate()).resolves.toBe('Some additional notes.');
     });
   });
+
+  describe('requestFinalReviewApproval', () => {
+    it('accepts approval, rejection, and cancellation only', async () => {
+      const gate = new ApprovalGate();
+
+      mockAnswers(['a']);
+      await expect(gate.requestFinalReviewApproval()).resolves.toBe('approved');
+
+      mockAnswers(['r']);
+      await expect(gate.requestFinalReviewApproval()).resolves.toBe('rejected');
+
+      mockAnswers(['c']);
+      await expect(gate.requestFinalReviewApproval()).resolves.toBe('cancelled');
+    });
+
+    it('re-prompts when given a plan-only action', async () => {
+      const gate = new ApprovalGate();
+      mockAnswers(['export', 'approve']);
+
+      await expect(gate.requestFinalReviewApproval()).resolves.toBe('approved');
+    });
+
+    it('captures trimmed final-review rejection feedback', async () => {
+      const gate = new ApprovalGate();
+      mockAnswers(['  Please add coverage for the regression.  ']);
+
+      await expect(gate.requestFinalReviewRejection()).resolves.toBe('Please add coverage for the regression.');
+    });
+  });
 });

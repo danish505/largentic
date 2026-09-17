@@ -8,14 +8,24 @@ import { WorkflowEngine } from '../../../src/engine/workflow-engine.js';
 import { ApprovalGate } from '../../../src/engine/approval-gate.js';
 import { FakeProvider } from '../../../src/providers/fake-provider.js';
 import { StateStore } from '../../../src/state/state-store.js';
-import type { AgentRequest, HarnessConfig, AgentResult, ApprovalDecision } from '../../../src/types.js';
+import { requestCancellation } from '../../../src/state/cancellation-request.js';
+import type { AgentRequest, HarnessConfig, AgentResult, ApprovalDecision, FinalReviewDecision } from '../../../src/types.js';
 
-function makeGate(decisions: ApprovalDecision[], updateNotes: string[] = []): ApprovalGate {
+function makeGate(
+  decisions: ApprovalDecision[],
+  updateNotes: string[] = [],
+  finalDecisions: FinalReviewDecision[] = [],
+  finalRejectionNotes: string[] = []
+): ApprovalGate {
   let index = 0;
   let updateIndex = 0;
+  let finalIndex = 0;
+  let rejectionIndex = 0;
   return {
     requestApproval: async () => decisions[index++] ?? 'cancelled',
     requestPlanUpdate: async () => updateNotes[updateIndex++] ?? 'Test update notes',
+    requestFinalReviewApproval: async () => finalDecisions[finalIndex++] ?? 'cancelled',
+    requestFinalReviewRejection: async () => finalRejectionNotes[rejectionIndex++] ?? 'Final review rejected in test',
   } as ApprovalGate;
 }
 
@@ -231,6 +241,258 @@ describe('WorkflowEngine — integration', () => {
     // Planning should NOT have been called — we resumed from implementing
     expect(callLog).not.toContain('planning');
     expect(callLog).toContain('implementing');
+  });
+
+  it('recovers a persisted implementation checkpoint without repeating the provider call', async () => {
+    const manager = new RunManager(tmpDir);
+    const { runId, paths } = manager.create('Checkpoint recovery test', { profile: 'generic', provider: 'fake' });
+    const store = new StateStore(paths.runDir);
+    store.transition('planning');
+    store.transition('awaiting_plan_approval');
+    store.transition('implementing');
+    fs.writeFileSync(path.join(paths.runDir, 'plan.md'), '## Existing plan', 'utf8');
+
+    const checkpoint: AgentResult = {
+      status: 'success',
+      content: '## Implementation\n\nAlready completed before interruption.',
+    };
+    const checkpointResult = {
+      schema_version: '2.0',
+      run_id: runId,
+      attempt: 1,
+      stage: 'implementing',
+      agent_id: 'implementing',
+      provider: 'fake',
+      input_hashes: {},
+      output_files: [],
+      summary: checkpoint.content,
+      next_action: 'advance',
+      failure_classification: null,
+      started_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+      ...checkpoint,
+    };
+    fs.writeFileSync(
+      path.join(paths.attemptDir(1), 'implementing-result.json'),
+      JSON.stringify(checkpointResult),
+      'utf8'
+    );
+
+    const provider = new FakeProvider();
+    const callLog: string[] = [];
+    const originalExecute = provider.execute.bind(provider);
+    provider.execute = async (request) => {
+      callLog.push(request.stage);
+      return originalExecute(request);
+    };
+
+    const engine = new WorkflowEngine({
+      config: defaultConfig(),
+      provider,
+      runId,
+      paths,
+      task: 'Checkpoint recovery test',
+      cwd: tmpDir,
+      autoApprove: true,
+    });
+
+    await expect(engine.run()).resolves.toMatchObject({ status: 'approved' });
+    expect(callLog).not.toContain('implementing');
+    expect(fs.readFileSync(path.join(paths.runDir, 'implementation.md'), 'utf8')).toContain('Already completed');
+  });
+
+  it('resumes an awaiting plan approval without generating a replacement plan', async () => {
+    const manager = new RunManager(tmpDir);
+    const { runId, paths } = manager.create('Paused plan approval', { profile: 'generic', provider: 'fake' });
+    const store = new StateStore(paths.runDir);
+    store.transition('planning');
+    store.transition('awaiting_plan_approval');
+    fs.writeFileSync(path.join(paths.runDir, 'plan.md'), '## Approved existing plan', 'utf8');
+
+    const provider = new FakeProvider();
+    const callLog: string[] = [];
+    const originalExecute = provider.execute.bind(provider);
+    provider.execute = async (request) => {
+      callLog.push(request.stage);
+      return originalExecute(request);
+    };
+
+    const config = defaultConfig();
+    config.workflow.plan_approval = 'required';
+    const engine = new WorkflowEngine({
+      config,
+      provider,
+      runId,
+      paths,
+      task: 'Paused plan approval',
+      cwd: tmpDir,
+      approvalGate: makeGate(['approved']),
+    });
+
+    await expect(engine.run()).resolves.toMatchObject({ status: 'approved' });
+    expect(callLog).not.toContain('planning');
+  });
+
+  it('requires and records final-review approval when configured', async () => {
+    const manager = new RunManager(tmpDir);
+    const { runId, paths } = manager.create('Required final approval', { profile: 'generic', provider: 'fake' });
+    const config = defaultConfig();
+    config.workflow.review_approval = 'required';
+
+    const engine = new WorkflowEngine({
+      config,
+      provider: new FakeProvider(),
+      runId,
+      paths,
+      task: 'Required final approval',
+      cwd: tmpDir,
+      autoApprove: false,
+      approvalGate: makeGate([], [], ['approved']),
+    });
+
+    await expect(engine.run()).resolves.toMatchObject({ status: 'approved', transition_actor: 'human' });
+    const eventTypes = fs.readFileSync(paths.eventsFile, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line).type);
+    expect(eventTypes).toContain('approval_request');
+    expect(eventTypes).toContain('approval_decision');
+  });
+
+  it('resumes awaiting final-review approval without rerunning review', async () => {
+    const manager = new RunManager(tmpDir);
+    const { runId, paths } = manager.create('Paused final approval', { profile: 'generic', provider: 'fake' });
+    const store = new StateStore(paths.runDir);
+    store.transition('planning');
+    store.transition('awaiting_plan_approval');
+    store.transition('implementing');
+    store.transition('testing');
+    store.transition('reviewing');
+    store.transition('awaiting_review_approval');
+    fs.writeFileSync(path.join(paths.runDir, 'plan.md'), '## Plan', 'utf8');
+    fs.writeFileSync(path.join(paths.runDir, 'implementation.md'), '## Implementation', 'utf8');
+    fs.writeFileSync(path.join(paths.runDir, 'test-results.md'), '## Tests', 'utf8');
+    fs.writeFileSync(path.join(paths.runDir, 'review.md'), '## Review\n\nApproved', 'utf8');
+
+    const provider = new FakeProvider();
+    const callLog: string[] = [];
+    const originalExecute = provider.execute.bind(provider);
+    provider.execute = async (request) => {
+      callLog.push(request.stage);
+      return originalExecute(request);
+    };
+    const config = defaultConfig();
+    config.workflow.review_approval = 'required';
+    const engine = new WorkflowEngine({
+      config,
+      provider,
+      runId,
+      paths,
+      task: 'Paused final approval',
+      cwd: tmpDir,
+      approvalGate: makeGate([], [], ['approved']),
+    });
+
+    await expect(engine.run()).resolves.toMatchObject({ status: 'approved' });
+    expect(callLog).not.toContain('reviewing');
+  });
+
+  it('replans after final-review rejection and preserves the human feedback', async () => {
+    const manager = new RunManager(tmpDir);
+    const { runId, paths } = manager.create('Rejected final approval', { profile: 'generic', provider: 'fake' });
+    const config = defaultConfig();
+    config.workflow.review_approval = 'required';
+    const engine = new WorkflowEngine({
+      config,
+      provider: new FakeProvider(),
+      runId,
+      paths,
+      task: 'Rejected final approval',
+      cwd: tmpDir,
+      approvalGate: makeGate([], [], ['rejected', 'approved'], ['Add coverage for the failed edge case.']),
+    });
+
+    await expect(engine.run()).resolves.toMatchObject({ status: 'approved' });
+    expect(fs.readFileSync(path.join(paths.runDir, 'requested-changes.md'), 'utf8'))
+      .toContain('Add coverage for the failed edge case.');
+  });
+
+  it('cancels when the final-review approval is cancelled', async () => {
+    const manager = new RunManager(tmpDir);
+    const { runId, paths } = manager.create('Cancelled final approval', { profile: 'generic', provider: 'fake' });
+    const config = defaultConfig();
+    config.workflow.review_approval = 'required';
+    const engine = new WorkflowEngine({
+      config,
+      provider: new FakeProvider(),
+      runId,
+      paths,
+      task: 'Cancelled final approval',
+      cwd: tmpDir,
+      approvalGate: makeGate([], [], ['cancelled']),
+    });
+
+    await expect(engine.run()).resolves.toMatchObject({
+      status: 'cancelled',
+      failure_reason: 'Final review approval cancelled by user',
+    });
+  });
+
+  it('stops at a cancellation request and resumes from the saved stage', async () => {
+    const manager = new RunManager(tmpDir);
+    const { runId, paths } = manager.create('Cooperative cancellation', { profile: 'generic', provider: 'fake' });
+    requestCancellation(paths.runDir);
+
+    const cancelledEngine = new WorkflowEngine({
+      config: defaultConfig(),
+      provider: new FakeProvider(),
+      runId,
+      paths,
+      task: 'Cooperative cancellation',
+      cwd: tmpDir,
+      autoApprove: true,
+    });
+    await expect(cancelledEngine.run()).resolves.toMatchObject({ status: 'cancelled', resume_status: 'created' });
+
+    const resumedEngine = new WorkflowEngine({
+      config: defaultConfig(),
+      provider: new FakeProvider(),
+      runId,
+      paths,
+      task: 'Cooperative cancellation',
+      cwd: tmpDir,
+      autoApprove: true,
+      resumeCancelled: true,
+      resumedFromStatus: 'created',
+    });
+    await expect(resumedEngine.run()).resolves.toMatchObject({ status: 'approved' });
+  });
+
+  it('honors a cancellation requested while plan approval is awaiting input', async () => {
+    const manager = new RunManager(tmpDir);
+    const { runId, paths } = manager.create('Cancel during plan approval', { profile: 'generic', provider: 'fake' });
+    const config = defaultConfig();
+    config.workflow.plan_approval = 'required';
+    const gate = makeGate(['approved']);
+    gate.requestApproval = async () => {
+      requestCancellation(paths.runDir);
+      return 'approved';
+    };
+
+    const engine = new WorkflowEngine({
+      config,
+      provider: new FakeProvider(),
+      runId,
+      paths,
+      task: 'Cancel during plan approval',
+      cwd: tmpDir,
+      approvalGate: gate,
+    });
+
+    await expect(engine.run()).resolves.toMatchObject({
+      status: 'cancelled',
+      resume_status: 'awaiting_plan_approval',
+    });
   });
 
   it('writes all transitions to events.jsonl', async () => {

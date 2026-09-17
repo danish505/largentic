@@ -19,29 +19,30 @@ workflow:
   plan_export_directory: .largentic/exports  # directory for exported plan.md files
 
 agents:
+  # provider and reasoning are reserved for a future release; only system_prompt_override is enforced in V2 alpha.
   planner:
-    provider: codex
-    reasoning: high
+    provider: codex      # reserved (not enforced)
+    reasoning: high      # reserved (not enforced)
   implementer:
-    provider: codex
-    reasoning: medium
+    provider: codex      # reserved (not enforced)
+    reasoning: medium    # reserved (not enforced)
   tester:
-    provider: codex
-    reasoning: medium
+    provider: codex      # reserved (not enforced)
+    reasoning: medium    # reserved (not enforced)
   reviewer:
-    provider: codex
-    reasoning: high
+    provider: codex      # reserved (not enforced)
+    reasoning: high      # reserved (not enforced)
 
 quality_gates:
-  require_tests: true
-  require_clean_secrets_scan: true
-  max_changed_files: 25
-  # test_command: vendor/bin/phpunit --no-coverage --testdox
-  # build_command: npm run build
+  require_tests: true                # reserved (not enforced)
+  require_clean_secrets_scan: true   # reserved (not enforced)
+  max_changed_files: 25              # reserved; planned for V2.1
+  # test_command: vendor/bin/phpunit --no-coverage --testdox  # reserved (not enforced)
+  # build_command: npm run build                          # reserved (not enforced)
 
 budget:
-  max_runtime_minutes: 45
-  max_estimated_cost_usd: 10
+  max_runtime_minutes: 45       # reserved; planned for V2.1
+  max_estimated_cost_usd: 10    # reserved until accurate pricing is available
 
 # provider: codex   # override global default provider
 `;
