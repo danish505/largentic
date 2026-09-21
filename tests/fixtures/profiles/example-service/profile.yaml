@@ -1,0 +1,23 @@
+schema_version: 1
+id: example-service
+name: Example Service
+version: 1.0.0
+extends: base
+detection:
+  indicators: []
+compatibility:
+  runtimes: {}
+commands:
+  package_manager: auto
+  test: "{pm} test"
+context:
+  priority:
+    - package.json
+  exclude: []
+rules:
+  - rules/global.md
+agents:
+  planner: [agents/planner.md]
+  implementer: [agents/implementer.md]
+  tester: [agents/tester.md]
+  reviewer: [agents/reviewer.md]

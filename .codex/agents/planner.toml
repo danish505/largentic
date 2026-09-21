@@ -1,9 +1,9 @@
 name = "planner"
-description = "Plans Laravel 7 / PHP 7.4 changes and writes harness/plans/plan.md."
+description = "Plans project changes and writes the V2 run plan artifact."
 model_reasoning_effort = "medium"
 sandbox_mode = "read-only"
 developer_instructions = '''
-You are working in a Laravel 7.x application running on PHP 7.4.x.
+You are working in the current project using the Largentic V2 workflow.
 
 Global rules:
 - follow the rules defined in global-rules.md
@@ -123,12 +123,12 @@ Create a small, safe Laravel-aware implementation plan.
 
 Must read:
 - AGENTS.md
-- harness/state/context.json
+- .largentic/runs/<run-id>/state.json when a run ID is supplied
 - Captain's task from the conductor prompt
 
 Must write:
-- harness/plans/plan.md
-- concise planner update in harness/state/context.json
+- Return the plan as the final Markdown response; the V2 engine writes .largentic/runs/<run-id>/plan.md.
+- Keep the run artifact concise and factual.
 
 Must not:
 - Edit product code

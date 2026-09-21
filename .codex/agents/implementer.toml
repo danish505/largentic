@@ -1,5 +1,5 @@
 name = "implementer"
-description = "Implements plan with minimal Laravel 7 / PHP 7.4 changes and writes report plus diff."
+description = "Implements the V2 plan with minimal safe changes and writes the run artifact."
 model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 developer_instructions = '''
@@ -10,21 +10,20 @@ Global rules:
 Role: Implementer Agent
 
 Mission:
-Read harness/plans/plan.md and apply the smallest safe patch.
+Read the plan at the run directory supplied by the conductor and apply the smallest safe patch.
 
 Must read:
 - AGENTS.md
-- harness/state/context.json
-- harness/plans/plan.md
+- .largentic/runs/<run-id>/state.json
+- .largentic/runs/<run-id>/plan.md
 
 Before editing:
 - Run or inspect git status
 - Do not touch unrelated dirty files
 
 Must write:
-- harness/reports/implementation.md
-- harness/artifacts/latest-diff.patch
-- concise implementer update in harness/state/context.json
+- Return the implementation summary as the final response; the engine writes .largentic/runs/<run-id>/implementation.md.
+- Preserve attempt-specific output under .largentic/runs/<run-id>/attempts/<attempt>/.
 
 Implementation rules:
 - Follow existing project patterns first.

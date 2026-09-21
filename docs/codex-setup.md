@@ -1,52 +1,46 @@
-# Codex Setup
+# Codex Setup for Largentic V2
 
-## Project Files
+Largentic V2 uses the native Codex agent configuration in the target project's `.codex/` directory.
 
-Place these files in the root of your Laravel project:
+## Project files
 
-```text
-.codex/config.toml
-.codex/agents/*.toml
-harness/
-```
-
-Keep your project-level `AGENTS.md` as the global project instruction file.
-
-## MCP
-
-This harness does not require MCP servers for v1.
-
-Normal shell commands are enough:
+Run:
 
 ```bash
-vendor/bin/phpunit --no-coverage --testdox
-cd harness && npx playwright test
+lh init
 ```
 
-If Codex startup is slow, check for global MCP servers in:
+This creates:
 
 ```text
-~/.codex/config.toml
+.largentic/config.yaml
+.largentic/task.md
+.largentic/runs/
+.codex/config.toml
+.codex/global-rules.md
+.codex/agents/planner.toml
+.codex/agents/implementer.toml
+.codex/agents/tester.toml
+.codex/agents/reviewer.toml
 ```
 
-and remove or disable unnecessary `[mcp_servers.*]` blocks.
+The V2 engine passes the current run ID and run directory to each agent. Agents return their stage artifact as the final Markdown response; the engine persists it under `.largentic/runs/<run-id>/`.
+
+## Requirements
+
+- Node.js 20+
+- Git
+- Codex CLI for production runs
+
+For Laravel projects, also install PHP and Composer. Browser checks should use the project's own Playwright configuration when applicable.
 
 ## Running
 
-From the Laravel project root:
-
 ```bash
-codex
+lh doctor
+lh run "Describe the task"
 ```
 
-Paste:
+Use `lh status <run-id>`, `lh inspect <run-id>`, and `lh report <run-id>` to inspect a run.
 
-```text
-harness/prompts/run-harness.md
-```
-
-Replace the Task section.
-
-## Tip
-
-If Codex does not follow `harness/prompts/run-harness.md`, add a short Harness Execution Protocol to your root `AGENTS.md`, because Codex automatically reads `AGENTS.md` files while prompt files must be explicitly referenced or pasted.
+The legacy V1 `harness/` directory is independent and is not required by V2.

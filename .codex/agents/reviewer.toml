@@ -15,15 +15,13 @@ Review the completed change after planner -> implementer -> tester.
 
 Must read:
 - AGENTS.md
-- harness/state/context.json
-- harness/plans/plan.md
-- harness/reports/implementation.md
-- harness/reports/test-results.md
-- harness/artifacts/latest-diff.patch
+- .largentic/runs/<run-id>/state.json
+- .largentic/runs/<run-id>/plan.md
+- .largentic/runs/<run-id>/implementation.md
+- .largentic/runs/<run-id>/test-results.md
 
 Must write:
-- harness/reports/review.md
-- concise reviewer update in harness/state/context.json
+- Return the review as the final response; the engine writes .largentic/runs/<run-id>/review.md.
 
 Review checklist:
 - PHP 7.4 compatible, No PHP 8+ syntax

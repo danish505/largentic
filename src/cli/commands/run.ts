@@ -1,0 +1,199 @@
+import { RunManager } from '../../engine/run-manager.js';
+import { WorkflowEngine } from '../../engine/workflow-engine.js';
+import { FakeProvider } from '../../providers/fake-provider.js';
+import { CodexProvider } from '../../providers/codex-provider.js';
+import { getCodexCliAvailabilityError } from '../../providers/codex-cli.js';
+import { getCodexProjectConfigError } from '../../providers/codex-preflight.js';
+import { loadConfig, findConfigPath } from '../../config/loader.js';
+import { ProgressReporter } from '../../ui/progress-reporter.js';
+import { Spinner } from '../../ui/spinner.js';
+import type { AgentProvider, HarnessConfig } from '../../types.js';
+import { statusToExitCode } from '../exit-codes.js';
+import { execSync } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
+import { HARNESS_DIR_NAME, HARNESS_NAME_WITH_VERSION } from '../../constants.js';
+
+export async function runCommand(
+  task: string | undefined,
+  cwd: string,
+  options: { autoApprove?: boolean; provider?: string; planFile?: string } = {}
+): Promise<void> {
+  const resolvedTask = resolveTask(task, cwd);
+  if (!resolvedTask) {
+    return;
+  }
+  const configPath = findConfigPath(cwd);
+  const { config, valid, errors } = loadConfig(configPath);
+
+  if (!valid) {
+    console.error('❌ Invalid config:\n' + errors.join('\n'));
+    console.error('  Run "lh init" or "lh config validate" for details.');
+    process.exitCode = 5;
+    return;
+  }
+
+  let initialPlan: string | undefined;
+  if (options.planFile) {
+    const resolvedPlanPath = path.resolve(cwd, options.planFile);
+    if (!fs.existsSync(resolvedPlanPath)) {
+      console.error(`❌ Plan file not found: ${options.planFile}`);
+      process.exitCode = 5;
+      return;
+    }
+
+    const allowedDirSetting = config.workflow.plan_export_directory ?? '.largentic/exports';
+    const allowedDir = path.resolve(cwd, allowedDirSetting);
+    const relative = path.relative(allowedDir, resolvedPlanPath);
+    const isInside = !relative.startsWith('..') && !path.isAbsolute(relative);
+
+    if (!isInside) {
+      console.error(`❌ Plan file must be inside the configured plan export directory: ${allowedDirSetting}`);
+      process.exitCode = 5;
+      return;
+    }
+
+    try {
+      initialPlan = fs.readFileSync(resolvedPlanPath, 'utf8');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`❌ Failed to read plan file: ${msg}`);
+      process.exitCode = 5;
+      return;
+    }
+  }
+
+  const providerName = resolveProviderName(config.provider, options.provider);
+  if (!providerName) {
+    console.error(`❌ Unsupported provider "${options.provider}". Use "codex" or "fake".`);
+    process.exitCode = 5;
+    return;
+  }
+
+  if (providerName === 'codex') {
+    const codexError = getCodexCliAvailabilityError(cwd);
+    if (codexError) {
+      console.error(`❌ ${codexError}`);
+      process.exitCode = 1;
+      return;
+    }
+
+    const configError = getCodexProjectConfigError(cwd);
+    if (configError) {
+      console.error('❌ Native-agent mode cannot start.');
+      console.error(configError);
+      process.exitCode = 5;
+      return;
+    }
+  }
+
+  // Gather git context
+  let gitBranch: string | undefined;
+  let gitCommit: string | undefined;
+  try {
+    gitBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    gitCommit = execSync('git rev-parse --short HEAD', {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch { /* not a git repo or no commits */ }
+
+  const manager = new RunManager(cwd);
+  const { runId, paths } = manager.create(resolvedTask, {
+    profile: config.profile,
+    provider: providerName,
+    gitBranch,
+    gitCommit,
+  });
+
+  console.log(`\n🚀 ${HARNESS_NAME_WITH_VERSION}`);
+  console.log(`   Run ID : ${runId}`);
+  console.log(`   Task   : ${resolvedTask}`);
+  console.log(`   Profile: ${config.profile}`);
+  console.log(`   Provider: ${providerName}\n`);
+
+  const provider = createProvider(providerName, cwd);
+  const reporter = new ProgressReporter(new Spinner(process.stdout.isTTY));
+
+  const engine = new WorkflowEngine({
+    config: { ...config, provider: providerName },
+    provider,
+    runId,
+    paths,
+    task: resolvedTask,
+    cwd,
+    autoApprove: options.autoApprove,
+    reporter,
+    initialPlan,
+  });
+
+  const finalState = await engine.run();
+
+  const icons: Record<string, string> = {
+    approved: '✅',
+    failed: '❌',
+    cancelled: '🚫',
+    blocked: '🔒',
+  };
+  const icon = icons[finalState.status] ?? '⏹';
+  console.log(`\n${icon} Run ${finalState.status.toUpperCase()}`);
+  console.log(`   Run ID: ${runId}`);
+  if (finalState.failure_reason) console.log(`   Reason: ${finalState.failure_reason}`);
+  console.log(`\n  lh report ${runId}   — to view the full report`);
+  console.log(`  lh inspect ${runId}  — to inspect artifacts\n`);
+
+  process.exitCode = statusToExitCode(finalState.status);
+}
+
+function resolveTask(inline: string | undefined, cwd: string): string | null {
+  if (inline && inline.trim()) {
+    return inline.trim();
+  }
+
+  const taskFile = path.join(cwd, HARNESS_DIR_NAME, 'task.md');
+  if (!fs.existsSync(taskFile)) {
+    console.error(`❌ No task provided and ${HARNESS_DIR_NAME}/task.md does not exist.`);
+    console.error('   Either run: lh run "your task"');
+    console.error(`   Or create:  ${HARNESS_DIR_NAME}/task.md with your task description.`);
+    process.exitCode = 5;
+    return null;
+  }
+
+  const content = fs.readFileSync(taskFile, 'utf8').trim();
+  if (!content) {
+    console.error(`❌ ${HARNESS_DIR_NAME}/task.md is empty. Add your task description to it.`);
+    process.exitCode = 5;
+    return null;
+  }
+
+  console.log(`📄 Using task from ${HARNESS_DIR_NAME}/task.md`);
+  return content;
+}
+
+export function resolveProviderName(
+  configProvider: HarnessConfig['provider'],
+  override?: string
+): HarnessConfig['provider'] | null {
+  if (!override) {
+    return configProvider;
+  }
+
+  if (override === 'codex' || override === 'fake') {
+    return override;
+  }
+
+  return null;
+}
+
+export function createProvider(providerName: HarnessConfig['provider'], cwd: string): AgentProvider {
+  if (providerName === 'fake') {
+    return new FakeProvider();
+  }
+
+  return new CodexProvider({ cwd });
+}

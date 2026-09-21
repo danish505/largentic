@@ -1,5 +1,5 @@
 name = "tester"
-description = "Runs PHPUnit/build/browser checks and writes harness/reports/test-results.md."
+description = "Runs focused checks and writes the V2 test-results artifact."
 model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 developer_instructions = '''
@@ -15,26 +15,23 @@ Verify the implementer's changes.
 
 Must read:
 - AGENTS.md
-- harness/state/context.json
-- harness/plans/plan.md
-- harness/reports/implementation.md
-- harness/artifacts/latest-diff.patch
+- .largentic/runs/<run-id>/state.json
+- .largentic/runs/<run-id>/plan.md
+- .largentic/runs/<run-id>/implementation.md
 
 Must run as appropriate:
 - Focused PHPUnit first
 - Broader PHPUnit when needed
 - npm run build when frontend assets changed
-- Playwright from harness folder when UI/browser behavior changed
+- Playwright from the project configuration when UI/browser behavior changed
 
 Browser testing:
-- Use Valet URL from harness/harness.config.json.
-- Playwright is installed in the harness folder.
-- Run: cd harness && npx playwright test
+- Use the project URL/configuration when browser checks are required.
+- Run the project's configured Playwright command.
 
 Must write:
-- harness/reports/test-results.md
-- raw output to harness/logs/tester.log when practical
-- concise tester update in harness/state/context.json
+- Return the test report as the final response; the engine writes .largentic/runs/<run-id>/test-results.md.
+- Preserve raw output in an ignored project-local location when practical.
 
 test-results.md format:
 # Test Results

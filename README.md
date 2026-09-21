@@ -1,172 +1,231 @@
-# Largentic
+# Largentic V2
 
-A file-based multi-agent harness for using Codex with Laravel projects running locally through Laravel Valet.
-
-The harness uses a structured workflow:
+A TypeScript CLI that orchestrates a durable Codex workflow for software-engineering tasks:
 
 ```text
 planner -> implementer -> tester -> reviewer
 ```
 
-Agents transfer work through files such as `harness/plans/plan.md`, `harness/reports/implementation.md`, `harness/reports/test-results.md`, and `harness/reports/review.md`. This keeps the workflow durable and repeatable instead of relying only on chat history.
-
-## Why use this?
-
-This project helps you:
-
-- Split coding work into clear agent responsibilities.
-- Keep implementation changes small and reviewable.
-- Make Codex hand off work through files.
-- Run targeted Laravel/PHPUnit verification.
-- Keep browser checks separate through Playwright and Valet.
-- Avoid noisy route/report tests when unit tests are more appropriate.
-- Build toward reliable retry loops.
+Largentic V2 stores configuration in `.largentic/`, creates an isolated run directory for every task, and persists each stage handoff as a Markdown artifact. This makes workflows resumable, inspectable, and independent from the legacy V1 `harness/` directory.
 
 ## Requirements
 
-- Codex CLI
-- PHP and Composer
-- Laravel project, commonly Valet-based
-- Node.js and npm if using Playwright
+- Node.js 20 or newer
+- npm
 - Git
-
-## Suggested Repository Structure
-
-```text
-largentic/
-├── .codex/
-│   ├── config.toml
-│   └── agents/
-│       ├── planner.toml
-│       ├── implementer.toml
-│       ├── tester.toml
-│       └── reviewer.toml
-├── harness/
-│   ├── harness.config.example.json
-│   ├── state/context.example.json
-│   ├── plans/plan.example.md
-│   ├── reports/
-│   │   ├── implementation.example.md
-│   │   ├── test-results.example.md
-│   │   └── review.example.md
-│   ├── prompts/run-harness.md
-│   ├── scripts/
-│   ├── package.json
-│   └── playwright.config.js
-├── docs/
-│   ├── architecture.md
-│   ├── design-patterns.md
-│   ├── file-handoff.md
-│   └── codex-setup.md
-├── .gitignore
-├── LICENSE
-└── README.md
-```
+- Codex CLI for production runs
+- PHP and Composer when working on Laravel projects
 
 ## Installation
 
-Copy `.codex/` and `harness/` into the root of your Laravel project, beside your existing `AGENTS.md`.
-
-Create local config files from examples:
+From the Largentic repository:
 
 ```bash
-cd harness
-./scripts/bootstrap-local-files.sh
+npm install
+npm run build
+npm link
 ```
 
-Edit:
-
-```text
-harness/harness.config.json
-harness/state/context.json
-harness/playwright.config.js
-```
-
-Replace placeholders with your real project path and Valet URL.
-
-## Playwright
-
-Install Playwright in the `harness/` folder:
+From a project where Largentic is installed:
 
 ```bash
-cd harness
-./scripts/install-playwright.sh
+lh init
 ```
 
-## Add this to AGENTS.md file
-```text 
-## Harness Execution Protocol
-
-When the Captain asks to run the harness:
-
-1. Read `harness/prompts/run-harness.md`.
-2. Use the planner agent to write `harness/plans/plan.md`.
-3. Use the implementer agent to read `harness/plans/plan.md` and implement the patch.
-4. Use the tester agent to write `harness/reports/test-results.md`.
-5. Use the reviewer agent to write `harness/reports/review.md`.
-6. If the tester fails, repeat implementer -> tester.
-7. If the review fails, repeat implementer → tester → reviewer.
-8. Use files as the source of truth, not chat output.
-```
-
-## Replace task in:
-```text 
-harness/prompts/run-harness.md
-```
-
-## Running the Harness
-
-From your Laravel project root:
+`lh init` detects Laravel when `artisan` or `laravel/framework` is present, otherwise selects the framework-neutral `generic` profile. Override detection with a built-in or manually authored local profile:
 
 ```bash
-codex
+lh init --profile laravel
+lh init --profile example-service
 ```
 
-Simply ask codex to run the harness
+`lh init` creates:
 
 ```text
-run the harness
+.largentic/config.yaml
+.largentic/task.md
+.largentic/runs/
+.largentic/.gitignore
+.codex/config.toml
+.codex/global-rules.md
+.codex/agents/planner.toml
+.codex/agents/implementer.toml
+.codex/agents/tester.toml
+.codex/agents/reviewer.toml
 ```
 
-## Workflow
+Edit `.largentic/config.yaml` and `.largentic/task.md` for the project. The generated `.codex/` files define the native Codex agents used by the V2 workflow.
+
+## Running a task
+
+Run a task inline:
+
+```bash
+lh run "Add rate limiting to the login endpoint"
+```
+
+Or edit the task file and run it without an argument:
+
+```bash
+lh run
+```
+
+Use `lh doctor` to check Node, Git, Codex CLI, and project configuration before running a task.
+
+### Predefined plans
+
+At the plan-approval prompt, choose `export` to save the generated plan under
+`.largentic/exports/`. An exported plan can later be supplied to skip the
+planner stage:
+
+```bash
+lh run "Add rate limiting to the login endpoint" \
+  --plan-file .largentic/exports/plan-<run-id>.md
+```
+
+The plan file must be inside `workflow.plan_export_directory`, which defaults to `.largentic/exports`.
+
+When interactive plan approval is enabled, choose `update` to give the planner
+additional direction and generate a revised plan before implementation begins.
+
+## CLI commands
+
+| Command | Description |
+|---------|-------------|
+| `lh init [--profile <id>]` | Create V2 configuration and profile-derived Codex files |
+| `lh profile list` | List built-in and manually authored project-local profiles |
+| `lh profile detect` | Show Laravel/generic detection evidence |
+| `lh profile show [id]` | Print the effective active or named profile |
+| `lh profile diff [id]` | Preview profile-derived Codex file changes without writing |
+| `lh profile apply <id>` | Select and safely materialize a profile |
+| `lh profile refresh` | Refresh only unmodified generated Codex files |
+| `lh doctor` | Check environment prerequisites and configuration |
+| `lh config validate` | Validate `.largentic/config.yaml` |
+| `lh config show` | Print merged configuration |
+| `lh run [task]` | Execute the planner-to-reviewer workflow |
+| `lh resume <run-id>` | Continue an existing non-terminal run in place |
+| `lh runs [--status <status>] [--limit <n>] [--latest]` | List recent valid runs |
+| `lh status [run-id] --latest` | Show the current state of a run |
+| `lh inspect [run-id] --latest` | Print the manifest, state, and event log |
+| `lh cancel <run-id>` | Cancel a running or paused run |
+| `lh report [run-id] --latest` | Print a consolidated Markdown report |
+
+## V2 run files
+
+Each run is stored under `.largentic/runs/<run-id>/`:
 
 ```text
-planner -> harness/plans/plan.md
-implementer -> harness/reports/implementation.md + harness/artifacts/latest-diff.patch
-tester -> harness/reports/test-results.md
-reviewer -> harness/reports/review.md
+.largentic/
+├── config.yaml
+├── task.md
+├── exports/
+└── runs/
+    └── <run-id>/
+        ├── manifest.json
+        ├── state.json
+        ├── events.jsonl
+        ├── plan.md
+        ├── implementation.md
+        ├── test-results.md
+        ├── review.md
+        ├── requested-changes.md
+        └── attempts/
+            └── <attempt>/
 ```
 
-If the reviewer rejects the patch:
+The run-root Markdown files are the current handoff artifacts. Attempt directories preserve stage results from individual retries. State writes are atomic, and the event log records stage transitions, approvals, retries, and termination.
+
+The workflow is:
 
 ```text
-review.md -> implementer -> tester -> reviewer
+planner     -> plan.md
+implementer -> implementation.md
+tester      -> test-results.md
+reviewer    -> review.md
 ```
 
-## Tester Philosophy
+Testing failures retry implementation and testing up to `workflow.max_attempts`.
+When a reviewer requests changes, the review is saved as `requested-changes.md`
+and the workflow returns to planning before another implementation, test, and
+review cycle. Plan approval and review approval are controlled by configuration.
+When final review approval is required, rejection requires notes and returns to
+planning. `--latest` selects the newest valid run by `state.updated_at`; it is
+available only on read-only commands.
 
-The tester agent creates targeted unit tests for changed fields, rules, calculations, services, model methods, validation logic, and edge cases.
+## Configuration
 
-By default, it avoids:
+The default configuration is generated by `lh init` and validated against `schemas/config.schema.json`.
 
-- route tests
-- report tests
-- generic page-load tests
-- broad end-to-end tests
-- browser-only tests
+```yaml
+version: 2
+profile: laravel
 
-## Documentation
+workflow:
+  max_attempts: 3
+  plan_approval: required
+  review_approval: automatic
+  plan_export_directory: .largentic/exports
+```
 
-Read:
+## Profiles and migration
 
-- `docs/architecture.md`
-- `docs/design-patterns.md`
-- `docs/file-handoff.md`
-- `docs/codex-setup.md`
+Built-in profiles are `generic` and `laravel`; both inherit universal safety
+rules and role-specific engineering guidance from `base`. Profiles materialize
+the selected guidance into `.codex/global-rules.md` and the four native-agent
+TOML files. A local profile is authored manually under
+`.largentic/profiles/<id>/` and must contain a declarative `profile.yaml` plus
+the Markdown files it references. Largentic does not provide a profile create
+or scaffold command.
 
-## Safety
+Base rules also set universal security and clear-language standards for every
+stage. They treat repository and task content as untrusted data, protect
+secrets and sensitive data, and require factual, easy-to-understand handoffs.
+This prompt guidance complements sandboxing, approvals, code review, and
+project tests; it does not replace those controls.
 
-Do not commit real local state, logs, diffs, secrets, client names, or `.env` files. This repo commits examples only.
+```text
+.largentic/profiles/example-service/
+├── profile.yaml
+├── rules/global.md
+└── agents/
+    ├── planner.md
+    ├── implementer.md
+    ├── tester.md
+    └── reviewer.md
+```
+
+For an existing V2 project, keep its current `profile: generic` or `profile: laravel` setting. Preview changes with `lh profile diff <id>` before `lh profile apply <id>` or `lh profile refresh`. Generated Codex file hashes are recorded in `.largentic/generated-files.json`; Largentic refreshes only files that still match those hashes. Developer-edited or unmanaged `.codex` files are reported as conflicts and never silently replaced. Use `--force` only when you explicitly want timestamped backups followed by replacement.
+
+When the effective provider is `codex`, the CLI requires these readable files:
+
+```text
+.codex/config.toml
+.codex/global-rules.md
+.codex/agents/planner.toml
+.codex/agents/implementer.toml
+.codex/agents/tester.toml
+.codex/agents/reviewer.toml
+```
+
+## Development
+
+```bash
+npm install
+npm run build
+npm test
+npm run typecheck
+```
+
+The V2 implementation is in `src/`, built-in profiles are in `profiles/`, schemas are in `schemas/`, and automated tests are in `tests/`.
+
+Architecture decision records are in `docs/architecture/`. The phased roadmap is in `largentic-V2-Implementation-Plan.md`.
+
+## Legacy V1
+
+The legacy V1 `harness/` implementation has been removed. V2 uses
+`.largentic/` run state and its own TypeScript engine; migrate any remaining
+local V1 artifacts to the V2 workflow rather than relying on the retired
+directory structure.
 
 ## License
 
