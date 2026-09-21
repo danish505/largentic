@@ -8,6 +8,7 @@ export type RunStatus =
   | 'testing'
   | 'testing_failed'
   | 'reviewing'
+  | 'awaiting_review_approval'
   | 'review_rejected'
   | 'approved'
   | 'cancelled'
@@ -62,9 +63,10 @@ export interface StageResult {
   failure_classification: FailureClassification;
   failure_details?: string;
   usage?: {
-    input_tokens: number;
-    output_tokens: number;
-    estimated_cost_usd: number;
+    input_tokens?: number;
+    output_tokens?: number;
+    /** Accepted only for reading older V2 artifacts; new writes omit it. */
+    estimated_cost_usd?: number;
   };
   started_at: string;
   completed_at: string;
@@ -122,7 +124,7 @@ export interface AgentRequest {
 export interface AgentResult {
   status: 'success' | 'failure' | 'blocked';
   content: string;
-  usage?: { inputTokens: number; outputTokens: number };
+  usage?: { inputTokens?: number; outputTokens?: number };
   failureClassification?: FailureClassification;
   rawOutput?: string;
 }

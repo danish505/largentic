@@ -8,6 +8,8 @@ export type EventType =
   | 'stage_failed'
   | 'agent_call_start'
   | 'agent_call_complete'
+  | 'run_resumed'
+  | 'review_rejection_notes'
   | 'command_exec'
   | 'gate_result'
   | 'approval_request'
@@ -22,6 +24,18 @@ export interface HarnessEvent {
   timestamp: string;
   [key: string]: unknown;
 }
+
+export interface AgentCallCompleteData {
+  run_id: string;
+  stage: Stage;
+  attempt: number;
+  status: 'success' | 'failure' | 'blocked';
+  duration_ms: number;
+  input_tokens?: number;
+  output_tokens?: number;
+}
+
+export interface EventReadResult { events: HarnessEvent[]; malformedLines: number; }
 
 export class EventLogger {
   private eventsFile: string;
@@ -56,6 +70,10 @@ export class EventLogger {
     this.log('stage_failed', { run_id: runId, stage, attempt, classification, details });
   }
 
+  agentCallComplete(data: AgentCallCompleteData): void {
+    this.log('agent_call_complete', { ...data });
+  }
+
   gateResult(runId: string, results: GateResult[]): void {
     this.log('gate_result', { run_id: runId, results });
   }
@@ -77,11 +95,27 @@ export class EventLogger {
   }
 
   readAll(): HarnessEvent[] {
-    if (!require('fs').existsSync(this.eventsFile)) return [];
-    return require('fs')
+    return this.readWithDiagnostics().events;
+  }
+
+  readWithDiagnostics(): EventReadResult {
+    if (!fs.existsSync(this.eventsFile)) return { events: [], malformedLines: 0 };
+    let malformedLines = 0;
+    const events = fs
       .readFileSync(this.eventsFile, 'utf8')
       .split('\n')
       .filter(Boolean)
-      .map((line: string) => JSON.parse(line) as HarnessEvent);
+      .flatMap((line: string) => {
+        try {
+          const event = JSON.parse(line) as unknown;
+          if (event && typeof event === 'object') return [event as HarnessEvent];
+          malformedLines++;
+          return [];
+        } catch {
+          malformedLines++;
+          return [];
+        }
+      });
+    return { events, malformedLines };
   }
 }

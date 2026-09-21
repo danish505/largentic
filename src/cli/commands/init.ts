@@ -33,6 +33,7 @@ agents:
     reasoning: high
 
 quality_gates:
+  # Reserved for a future release; not enforced by V2 runtime yet.
   require_tests: true
   require_clean_secrets_scan: true
   max_changed_files: 25
@@ -40,6 +41,7 @@ quality_gates:
   # build_command: npm run build
 
 budget:
+  # Reserved for a future release; V2 reports provider tokens but no dollar cost.
   max_runtime_minutes: 45
   max_estimated_cost_usd: 10
 
@@ -49,12 +51,6 @@ budget:
 export function initCommand(cwd: string, options: { profile?: string } = {}): void {
   const harnessDir = path.join(cwd, HARNESS_DIR_NAME);
   const configPath = path.join(harnessDir, 'config.yaml');
-
-  if (fs.existsSync(configPath)) {
-    console.log(`✓ Config already exists: ${configPath}`);
-    console.log('  Run "lh config validate" to check it, or edit it manually.');
-    return;
-  }
 
   const detection = detectProfile(cwd);
   const profileId = options.profile ?? detection.profile;
@@ -70,12 +66,19 @@ export function initCommand(cwd: string, options: { profile?: string } = {}): vo
   fs.mkdirSync(harnessDir, { recursive: true });
   fs.mkdirSync(path.join(harnessDir, 'runs'), { recursive: true });
 
-  const config = CONFIG_TEMPLATE.replace('PROFILE_PLACEHOLDER', profileId);
-  fs.writeFileSync(configPath, config, 'utf8');
+  if (!fs.existsSync(configPath)) {
+    const config = CONFIG_TEMPLATE.replace('PROFILE_PLACEHOLDER', profileId);
+    fs.writeFileSync(configPath, config, 'utf8');
+  }
 
   const taskPath = path.join(harnessDir, 'task.md');
   if (!fs.existsSync(taskPath)) {
     fs.writeFileSync(taskPath, '# Task\n\nReplace this with your task description. This file is used when you run `lh run` without an inline prompt.\n', 'utf8');
+  }
+
+  const ignorePath = path.join(harnessDir, '.gitignore');
+  if (!fs.existsSync(ignorePath)) {
+    fs.writeFileSync(ignorePath, "runs/\nexports/\n", 'utf8');
   }
 
   const materialization = applyCodexMaterialization(cwd, profile);

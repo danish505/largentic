@@ -41,6 +41,8 @@ Prioritize:
 
 Avoid tests whose only purpose is increasing coverage.
 
+When relevant, include abuse, invalid-input, and authorization cases. Distinguish an unrun check from a passed check. State failure causes and next steps in clear language.
+
 ### 4. Use the Appropriate Test Level
 
 Use the smallest test level that provides sufficient confidence.
@@ -93,4 +95,3 @@ Cause and relevance of any failures.
 Important behavior that could not be verified.
 
 ---
-

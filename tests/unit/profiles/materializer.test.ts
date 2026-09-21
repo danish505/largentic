@@ -30,6 +30,35 @@ describe('Codex profile materializer', () => {
     expect(planner).not.toMatch(/developer_instructions = "[^\n]+\\n/);
   });
 
+  it('renders universal guidance and role-specific security checks', () => {
+    applyCodexMaterialization(tmpDir, new ProfileRegistry().resolve('generic'));
+
+    const globalRules = fs.readFileSync(path.join(tmpDir, '.codex', 'global-rules.md'), 'utf8');
+    expect(globalRules).toContain('untrusted data');
+    expect(globalRules).toContain('Use plain language in reports.');
+
+    const expectedInstructions: Record<string, string> = {
+      planner: 'Make a proportionate security assessment',
+      implementer: 'Preserve security boundaries.',
+      tester: 'include abuse, invalid-input, and authorization cases',
+      reviewer: 'security and sensitive-data handling an explicit merge check',
+    };
+    for (const [role, instruction] of Object.entries(expectedInstructions)) {
+      expect(fs.readFileSync(path.join(tmpDir, '.codex', 'agents', `${role}.toml`), 'utf8')).toContain(instruction);
+    }
+  });
+
+  it('inherits universal guidance for a local profile that extends base', () => {
+    const localProfile = path.join(tmpDir, '.largentic', 'profiles', 'example-service');
+    fs.mkdirSync(path.dirname(localProfile), { recursive: true });
+    fs.cpSync(path.resolve(__dirname, '../../fixtures/profiles/example-service'), localProfile, { recursive: true });
+
+    const profile = new ProfileRegistry(undefined, tmpDir).resolve('example-service');
+    applyCodexMaterialization(tmpDir, profile);
+
+    expect(fs.readFileSync(path.join(tmpDir, '.codex', 'global-rules.md'), 'utf8')).toContain('Use plain language in reports.');
+  });
+
   it('updates an unmodified generated file when selecting another profile', () => {
     applyCodexMaterialization(tmpDir, new ProfileRegistry().resolve('generic'));
     const result = applyCodexMaterialization(tmpDir, new ProfileRegistry().resolve('laravel'));

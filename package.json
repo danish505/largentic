@@ -25,7 +25,9 @@
     "lint": "eslint src tests --ext .ts",
     "lint:fix": "eslint src tests --ext .ts --fix",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run build && npm run test:package",
+    "prepack": "npm run build && npm run test:package"
   },
   "dependencies": {
     "ajv": "^8.17.1",

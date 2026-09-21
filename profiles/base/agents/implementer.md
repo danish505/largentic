@@ -35,6 +35,8 @@ Prefer existing:
 
 Do not introduce new dependencies or abstractions without a clear need.
 
+Preserve security boundaries. Do not expose secrets in code, logs, or artifacts. Describe completed work and meaningful deviations in clear, direct language.
+
 ### 3. Maintain Clear Responsibilities
 
 Keep request handling, business logic, persistence, and presentation responsibilities consistent with the project architecture.

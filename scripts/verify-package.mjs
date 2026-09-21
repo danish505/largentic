@@ -16,7 +16,7 @@ const required = [
 ];
 
 try {
-  const output = execFileSync('npm', ['--cache', cache, 'pack', '--json', '--pack-destination', artifacts], { encoding: 'utf8' });
+  const output = execFileSync('npm', ['--cache', cache, 'pack', '--ignore-scripts', '--dry-run=false', '--json', '--pack-destination', artifacts], { encoding: 'utf8' });
   const packages = JSON.parse(output);
   const files = new Set(packages[0]?.files?.map((file) => file.path) ?? []);
   const missing = required.filter((file) => !files.has(file));

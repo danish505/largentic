@@ -1,17 +1,21 @@
 import * as fs from 'fs';
 import { RunManager } from '../../engine/run-manager.js';
-import { StateStore } from '../../state/state-store.js';
 import { EventLogger } from '../../telemetry/event-logger.js';
 import { HARNESS_NAME_WITH_VERSION } from '../../constants.js';
+import { resolveRunId } from './runs.js';
+import { summarizeUsage } from '../../telemetry/usage-summary.js';
 
-export function reportCommand(runId: string, cwd: string): void {
+export function reportCommand(runId: string | undefined, cwd: string, options: { latest?: boolean } = {}): void {
   const manager = new RunManager(cwd);
   try {
-    const { runDir, paths } = manager.load(runId);
-    const manifest = JSON.parse(fs.readFileSync(paths.manifestFile, 'utf8'));
-    const state    = new StateStore(runDir).read();
+    const selection = resolveRunId(manager, runId, options);
+    selection.warnings.forEach((warning) => console.error(`⚠ ${warning}`));
+    const selectedRunId = selection.runId;
+    const { runDir, paths, manifest, state } = manager.load(selectedRunId);
     const logger   = new EventLogger(paths.eventsFile);
-    const events   = logger.readAll();
+    const eventRead = logger.readWithDiagnostics();
+    const events   = eventRead.events;
+    const usage = summarizeUsage(events);
 
     const startedAt  = new Date(manifest.created_at);
     const updatedAt  = new Date(state.updated_at);
@@ -29,7 +33,7 @@ export function reportCommand(runId: string, cwd: string): void {
     const report = [
       `# ${HARNESS_NAME_WITH_VERSION} — Run Report`,
       ``,
-      `**Run ID:** ${runId}`,
+      `**Run ID:** ${selectedRunId}`,
       `**Task:** ${manifest.task}`,
       `**Status:** ${state.status.toUpperCase()}`,
       `**Profile:** ${manifest.profile}`,
@@ -46,6 +50,13 @@ export function reportCommand(runId: string, cwd: string): void {
       ``,
       `## Artifacts Produced`,
       ...artifacts,
+      ``,
+      `## Token Usage`,
+      ...Object.entries(usage.stages).map(([stage, item]) => `- ${stage}: ${item.calls} calls, input ${item.unavailableInputCalls ? 'unavailable' : item.inputTokens}, output ${item.unavailableOutputCalls ? 'unavailable' : item.outputTokens}, total ${item.unavailableCalls ? 'unavailable' : item.inputTokens + item.outputTokens}`),
+      `- Total known tokens: ${usage.totalInputTokens === undefined || usage.totalOutputTokens === undefined ? 'unavailable' : usage.totalInputTokens + usage.totalOutputTokens}`,
+      `- Retry/revision overhead: ${usage.overheadTokens} tokens (calls after the first attempt or successful call for each stage)`,
+      `- Calls without complete usage: ${usage.unavailableCalls}`,
+      ...(eventRead.malformedLines ? [`- Warning: ignored ${eventRead.malformedLines} malformed event line(s).`] : []),
       ``,
       `## Final State`,
       `\`\`\`json`,

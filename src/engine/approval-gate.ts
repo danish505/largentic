@@ -57,4 +57,30 @@ export class ApprovalGate {
       });
     });
   }
+
+  async requestFinalApproval(): Promise<'approved' | 'rejected' | 'cancelled'> {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    return new Promise((resolve) => {
+      const ask = (): void => rl.question('  [a]pprove / [r]eject / [c]ancel: ', (answer) => {
+        const value = answer.trim().toLowerCase();
+        if (value === 'a' || value === 'approve') { rl.close(); resolve('approved'); }
+        else if (value === 'r' || value === 'reject') { rl.close(); resolve('rejected'); }
+        else if (value === 'c' || value === 'cancel') { rl.close(); resolve('cancelled'); }
+        else { process.stdout.write('  Invalid choice. Please enter a, r, or c.\n'); ask(); }
+      });
+      ask();
+    });
+  }
+
+  async requestRejectionNotes(): Promise<string> {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    return new Promise((resolve) => {
+      const ask = (): void => rl.question('  Explain the changes required: ', (answer) => {
+        const notes = answer.trim();
+        if (notes) { rl.close(); resolve(notes); }
+        else { process.stdout.write('  Rejection notes are required.\n'); ask(); }
+      });
+      ask();
+    });
+  }
 }

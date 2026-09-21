@@ -5,6 +5,8 @@ import { doctorCommand } from './commands/doctor.js';
 import { configValidateCommand, configShowCommand } from './commands/config.js';
 import { runCommand } from './commands/run.js';
 import { statusCommand, inspectCommand, cancelCommand } from './commands/status.js';
+import { resumeCommand } from './commands/resume.js';
+import { runsCommand } from './commands/runs.js';
 import { reportCommand } from './commands/report.js';
 import { profileApplyCommand, profileDetectCommand, profileDiffCommand, profileListCommand, profileRefreshCommand, profileShowCommand } from './commands/profile.js';
 import { HARNESS_DIR_NAME, HARNESS_NAME_WITH_VERSION } from '../constants.js';
@@ -61,14 +63,31 @@ program
   });
 
 program
-  .command('status <run-id>')
-  .description('Show the current status of a run')
-  .action((runId: string) => statusCommand(runId, cwd));
+  .command('runs')
+  .description('List recent valid runs')
+  .option('--limit <n>', 'Maximum runs to show (default: 10)')
+  .option('--status <status>', 'Filter by run status')
+  .option('--latest', 'Show exactly the newest matching run')
+  .action((opts: { limit?: string; status?: string; latest?: boolean }) => runsCommand(cwd, opts));
 
 program
-  .command('inspect <run-id>')
+  .command('resume <run-id>')
+  .description('Resume an existing non-terminal run in place')
+  .option('--auto-approve', 'Skip approval prompts')
+  .option('--provider <name>', 'Override provider (codex | fake)')
+  .action(async (runId: string, opts: { autoApprove?: boolean; provider?: string }) => resumeCommand(runId, cwd, opts));
+
+program
+  .command('status [run-id]')
+  .description('Show the current status of a run')
+  .option('--latest', 'Select the newest valid run')
+  .action((runId: string | undefined, opts: { latest?: boolean }) => statusCommand(runId, cwd, opts));
+
+program
+  .command('inspect [run-id]')
   .description('Print full manifest, state, and event log for a run')
-  .action((runId: string) => inspectCommand(runId, cwd));
+  .option('--latest', 'Select the newest valid run')
+  .action((runId: string | undefined, opts: { latest?: boolean }) => inspectCommand(runId, cwd, opts));
 
 program
   .command('cancel <run-id>')
@@ -76,8 +95,9 @@ program
   .action((runId: string) => cancelCommand(runId, cwd));
 
 program
-  .command('report <run-id>')
+  .command('report [run-id]')
   .description('Print a consolidated Markdown report for a run')
-  .action((runId: string) => reportCommand(runId, cwd));
+  .option('--latest', 'Select the newest valid run')
+  .action((runId: string | undefined, opts: { latest?: boolean }) => reportCommand(runId, cwd, opts));
 
 program.parse(process.argv);

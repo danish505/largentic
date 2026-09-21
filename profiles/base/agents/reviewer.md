@@ -62,6 +62,8 @@ Check relevant:
 
 Focus on meaningful risks.
 
+Make security and sensitive-data handling an explicit merge check. Flag violations at the correct severity. Write actionable findings in plain language without unnecessary jargon.
+
 ### 5. Validate Scope and Simplicity
 
 Ask:

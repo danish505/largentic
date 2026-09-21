@@ -273,10 +273,10 @@ export class CodexProvider implements AgentProvider {
       return undefined;
     }
 
-    return {
-      inputTokens: lastUsage.input_tokens ?? 0,
-      outputTokens: lastUsage.output_tokens ?? 0,
-    };
+    const usage: AgentResult['usage'] = {};
+    if (Number.isInteger(lastUsage.input_tokens)) usage.inputTokens = lastUsage.input_tokens;
+    if (Number.isInteger(lastUsage.output_tokens)) usage.outputTokens = lastUsage.output_tokens;
+    return Object.keys(usage).length > 0 ? usage : undefined;
   }
 
   private parseProviderError(stdout: string): string | null {

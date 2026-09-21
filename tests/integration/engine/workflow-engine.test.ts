@@ -233,6 +233,29 @@ describe('WorkflowEngine — integration', () => {
     expect(callLog).toContain('implementing');
   });
 
+  it('resumes a plan update with the existing plan and required notes', async () => {
+    const manager = new RunManager(tmpDir);
+    const { runId, paths } = manager.create('Resume updated plan', { profile: 'generic', provider: 'fake' });
+    const store = new StateStore(paths.runDir);
+    store.transition('planning');
+    store.transition('awaiting_plan_approval');
+    fs.writeFileSync(path.join(paths.runDir, 'plan.md'), '## Existing plan\n\nKeep this context.', 'utf8');
+    const config = defaultConfig();
+    config.workflow.plan_approval = 'required';
+    const provider = new FakeProvider();
+    const requests: AgentRequest[] = [];
+    const original = provider.execute.bind(provider);
+    provider.execute = async (request) => { requests.push(request); return original(request); };
+    const gate = makeGate(['update', 'approved'], ['Add a regression test']);
+
+    const finalState = await new WorkflowEngine({ config, provider, runId, paths, task: 'Resume updated plan', cwd: tmpDir, autoApprove: false, approvalGate: gate }).run();
+
+    expect(finalState.status).toBe('approved');
+    const planning = requests.find((request) => request.stage === 'planning');
+    expect(planning?.userMessage).toContain('Add a regression test');
+    expect(planning?.userMessage).toContain('Existing plan');
+  });
+
   it('writes all transitions to events.jsonl', async () => {
     const manager = new RunManager(tmpDir);
     const { runId, paths } = manager.create('Events test', { profile: 'generic', provider: 'fake' });

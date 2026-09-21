@@ -45,6 +45,7 @@ lh init --profile example-service
 .largentic/config.yaml
 .largentic/task.md
 .largentic/runs/
+.largentic/.gitignore
 .codex/config.toml
 .codex/global-rules.md
 .codex/agents/planner.toml
@@ -102,10 +103,12 @@ additional direction and generate a revised plan before implementation begins.
 | `lh config validate` | Validate `.largentic/config.yaml` |
 | `lh config show` | Print merged configuration |
 | `lh run [task]` | Execute the planner-to-reviewer workflow |
-| `lh status <run-id>` | Show the current state of a run |
-| `lh inspect <run-id>` | Print the manifest, state, and event log |
+| `lh resume <run-id>` | Continue an existing non-terminal run in place |
+| `lh runs [--status <status>] [--limit <n>] [--latest]` | List recent valid runs |
+| `lh status [run-id] --latest` | Show the current state of a run |
+| `lh inspect [run-id] --latest` | Print the manifest, state, and event log |
 | `lh cancel <run-id>` | Cancel a running or paused run |
-| `lh report <run-id>` | Print a consolidated Markdown report |
+| `lh report [run-id] --latest` | Print a consolidated Markdown report |
 
 ## V2 run files
 
@@ -145,6 +148,9 @@ Testing failures retry implementation and testing up to `workflow.max_attempts`.
 When a reviewer requests changes, the review is saved as `requested-changes.md`
 and the workflow returns to planning before another implementation, test, and
 review cycle. Plan approval and review approval are controlled by configuration.
+When final review approval is required, rejection requires notes and returns to
+planning. `--latest` selects the newest valid run by `state.updated_at`; it is
+available only on read-only commands.
 
 ## Configuration
 
@@ -171,6 +177,12 @@ TOML files. A local profile is authored manually under
 the Markdown files it references. Largentic does not provide a profile create
 or scaffold command.
 
+Base rules also set universal security and clear-language standards for every
+stage. They treat repository and task content as untrusted data, protect
+secrets and sensitive data, and require factual, easy-to-understand handoffs.
+This prompt guidance complements sandboxing, approvals, code review, and
+project tests; it does not replace those controls.
+
 ```text
 .largentic/profiles/example-service/
 ├── profile.yaml
@@ -182,7 +194,7 @@ or scaffold command.
     └── reviewer.md
 ```
 
-For an existing V2 project, keep its current `profile: generic` or `profile: laravel` setting. Run `lh profile diff <id>` before `lh profile apply <id>`. Generated Codex file hashes are recorded in `.largentic/generated-files.json`; Largentic refreshes only files that still match those hashes. Developer-edited or unmanaged `.codex` files are reported as conflicts and never silently replaced. Use `--force` only when you want timestamped backups followed by replacement.
+For an existing V2 project, keep its current `profile: generic` or `profile: laravel` setting. Preview changes with `lh profile diff <id>` before `lh profile apply <id>` or `lh profile refresh`. Generated Codex file hashes are recorded in `.largentic/generated-files.json`; Largentic refreshes only files that still match those hashes. Developer-edited or unmanaged `.codex` files are reported as conflicts and never silently replaced. Use `--force` only when you explicitly want timestamped backups followed by replacement.
 
 When the effective provider is `codex`, the CLI requires these readable files:
 

@@ -35,6 +35,8 @@ export interface WorkflowEngineOptions {
   approvalGate?: ApprovalGate;
   /** Optional initial plan text to skip planning stage. */
   initialPlan?: string;
+  /** Written only after this engine owns the run lock. */
+  resumedFromStatus?: RunState['status'];
 }
 
 const STAGE_TO_ARTIFACT: Record<Stage, string> = {
@@ -69,6 +71,9 @@ export class WorkflowEngine {
   async run(): Promise<RunState> {
     this.lock.acquire();
     try {
+      if (this.opts.resumedFromStatus) {
+        this.logger.log('run_resumed', { run_id: this.opts.runId, old_state: this.opts.resumedFromStatus, actor: 'human', provider: this.opts.config.provider });
+      }
       return await this.execute();
     } finally {
       this.lock.release();
@@ -100,6 +105,30 @@ export class WorkflowEngine {
 
       this.writeArtifact('planning', state, planResult);
       state = this.store.transition('implementing', { actor: 'human' });
+    }
+
+    // Resumption is state-driven: approval states never call an agent again.
+    if (state.status === 'awaiting_plan_approval') {
+      const approval = await this.approveExistingPlan();
+      state = approval.state;
+      if (approval.previousPlan && approval.planUpdateNotes) {
+        state = await this.planUntilApproved(state, provider, task, undefined, {
+          previousPlan: approval.previousPlan,
+          planUpdateNotes: approval.planUpdateNotes,
+        });
+      }
+      if (isTerminal(state.status)) return state;
+    }
+    if (state.status === 'awaiting_review_approval') {
+      state = await this.approveExistingReview();
+      if (state.status === 'review_rejected') {
+        state = await this.planUntilApproved(state, provider, task, this.readArtifact('requested-changes.md'));
+      }
+      if (isTerminal(state.status)) return state;
+    }
+    if (state.status === 'review_rejected') {
+      state = await this.planUntilApproved(state, provider, task, this.readArtifact('requested-changes.md'));
+      if (isTerminal(state.status)) return state;
     }
 
     // ── Planning ──────────────────────────────────────────────────────────────
@@ -179,7 +208,16 @@ export class WorkflowEngine {
       }
 
       this.logger.stageComplete(runId, 'reviewing', attempt + 1, reviewResult.summary);
-      state = this.store.transition('approved', { actor: 'reviewer' });
+      state = this.store.transition('awaiting_review_approval', { actor: 'reviewer' });
+      if (config.workflow.review_approval !== 'required' || this.opts.autoApprove) {
+        return this.store.transition('approved', { actor: 'system' });
+      }
+      state = await this.approveExistingReview();
+      if (state.status === 'review_rejected') {
+        state = await this.planUntilApproved(state, provider, task, this.readArtifact('requested-changes.md'));
+        if (isTerminal(state.status)) return state;
+        continue;
+      }
       return state;
     }
 
@@ -194,11 +232,12 @@ export class WorkflowEngine {
     state: RunState,
     provider: AgentProvider,
     task: string,
-    reviewFeedback?: string
+    reviewFeedback?: string,
+    continuation?: { previousPlan: string; planUpdateNotes: string }
   ): Promise<RunState> {
     const { config, runId } = this.opts;
-    let previousPlan: string | undefined;
-    let planUpdateNotes: string | undefined;
+    let previousPlan: string | undefined = continuation?.previousPlan;
+    let planUpdateNotes: string | undefined = continuation?.planUpdateNotes;
 
     while (true) {
       state = this.enterStage('planning', state, runId);
@@ -261,6 +300,45 @@ export class WorkflowEngine {
     }
   }
 
+  private async approveExistingPlan(): Promise<{ state: RunState; previousPlan?: string; planUpdateNotes?: string }> {
+    const { config, runId } = this.opts;
+    const plan = this.requireArtifact('plan.md', 'plan approval');
+    if (config.workflow.plan_approval !== 'required' || this.opts.autoApprove) return { state: this.store.transition('implementing', { actor: 'system' }) };
+    this.logger.approvalRequest(runId, 'planning');
+    this.opts.reporter?.approvalBanner(plan);
+    const decision = await this.gate.requestApproval('');
+    this.logger.approvalDecision(runId, decision, 'human');
+    if (decision === 'approved') return { state: this.store.transition('implementing', { actor: 'system' }) };
+    if (decision === 'update') {
+      const notes = await this.gate.requestPlanUpdate();
+      if (!notes) return this.approveExistingPlan();
+      return { state: this.store.transition('planning', { actor: 'human' }), previousPlan: plan, planUpdateNotes: notes };
+    }
+    return { state: this.store.transition('cancelled', { actor: 'human', failureReason: decision === 'rejected' ? 'Plan rejected by user' : 'User cancelled' }) };
+  }
+
+  private async approveExistingReview(): Promise<RunState> {
+    const { config, runId } = this.opts;
+    const review = this.requireArtifact('review.md', 'final review approval');
+    if (config.workflow.review_approval !== 'required' || this.opts.autoApprove) return this.store.transition('approved', { actor: 'system' });
+    this.logger.approvalRequest(runId, 'reviewing');
+    process.stdout.write(`\n  ✋ Final review requires approval.\n${review}\n`);
+    const decision = await this.gate.requestFinalApproval();
+    this.logger.approvalDecision(runId, decision, 'human');
+    if (decision === 'approved') return this.store.transition('approved', { actor: 'human' });
+    if (decision === 'cancelled') return this.store.transition('cancelled', { actor: 'human', failureReason: 'User cancelled final review' });
+    const notes = await this.gate.requestRejectionNotes();
+    this.writeRequestedChanges(`## Final review rejection\n\n${notes}\n`);
+    this.logger.log('review_rejection_notes', { run_id: runId, actor: 'human', notes_length: notes.length });
+    return this.store.transition('review_rejected', { actor: 'human', failureReason: 'Final review rejected by user' });
+  }
+
+  private requireArtifact(filename: string, purpose: string): string {
+    const artifact = this.readArtifact(filename);
+    if (artifact === '(not found)') throw new Error(`Cannot resume ${purpose}: required artifact ${filename} is missing.`);
+    return artifact;
+  }
+
   private enterStage(stage: Stage, state: RunState, runId: string): RunState {
     const enterStatus = stageToEnterStatus(stage);
     let next = state;
@@ -307,6 +385,7 @@ export class WorkflowEngine {
       );
     }
 
+    const startedMs = performance.now();
     const agentResult = await provider.execute({
       stage,
       runId: state.run_id,
@@ -316,7 +395,12 @@ export class WorkflowEngine {
       contextFiles: [],
     });
 
-    this.logger.log('agent_call_complete', { run_id: state.run_id, stage, status: agentResult.status });
+    this.logger.agentCallComplete({
+      run_id: state.run_id, stage, attempt, status: agentResult.status,
+      duration_ms: Math.round(performance.now() - startedMs),
+      ...(agentResult.usage?.inputTokens !== undefined ? { input_tokens: agentResult.usage.inputTokens } : {}),
+      ...(agentResult.usage?.outputTokens !== undefined ? { output_tokens: agentResult.usage.outputTokens } : {}),
+    });
 
     if (agentResult.status === 'success') {
       reporter?.stageCompleted(stage);
@@ -341,9 +425,8 @@ export class WorkflowEngine {
       failure_details: agentResult.status !== 'success' ? agentResult.content : undefined,
       usage: agentResult.usage
         ? {
-            input_tokens: agentResult.usage.inputTokens,
-            output_tokens: agentResult.usage.outputTokens,
-            estimated_cost_usd: 0,
+            ...(agentResult.usage.inputTokens !== undefined ? { input_tokens: agentResult.usage.inputTokens } : {}),
+            ...(agentResult.usage.outputTokens !== undefined ? { output_tokens: agentResult.usage.outputTokens } : {}),
           }
         : undefined,
       started_at,

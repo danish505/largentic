@@ -175,7 +175,7 @@ function resolveTask(inline: string | undefined, cwd: string): string | null {
   return content;
 }
 
-function resolveProviderName(
+export function resolveProviderName(
   configProvider: HarnessConfig['provider'],
   override?: string
 ): HarnessConfig['provider'] | null {
@@ -190,7 +190,7 @@ function resolveProviderName(
   return null;
 }
 
-function createProvider(providerName: HarnessConfig['provider'], cwd: string): AgentProvider {
+export function createProvider(providerName: HarnessConfig['provider'], cwd: string): AgentProvider {
   if (providerName === 'fake') {
     return new FakeProvider();
   }

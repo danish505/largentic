@@ -4,6 +4,9 @@
 
 ### Added
 
+- `lh runs` and read-only `--latest` selection for discovering recent valid runs.
+- In-place `lh resume`, required final-review approval, and provider token usage reports.
+
 - Built-in `base`, `generic`, and `laravel` profiles now provide reusable
   Markdown guidance for planner, implementer, tester, and reviewer roles.
 - `lh profile list`, `detect`, `show`, `diff`, `apply`, and `refresh` support

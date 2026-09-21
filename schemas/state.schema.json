@@ -24,6 +24,7 @@
         "testing",
         "testing_failed",
         "reviewing",
+        "awaiting_review_approval",
         "review_rejected",
         "approved",
         "cancelled",

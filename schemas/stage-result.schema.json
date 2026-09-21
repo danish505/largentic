@@ -79,7 +79,7 @@
       "properties": {
         "input_tokens":  { "type": "integer" },
         "output_tokens": { "type": "integer" },
-        "estimated_cost_usd": { "type": "number" }
+        "estimated_cost_usd": { "type": "number", "description": "Deprecated legacy field; new results omit cost." }
       }
     },
     "started_at":   { "type": "string", "format": "date-time" },

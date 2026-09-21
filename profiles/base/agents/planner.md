@@ -109,6 +109,8 @@ Where applicable, consider:
 
 Use existing framework security mechanisms where available.
 
+Make a proportionate security assessment for the requested work. Record relevant assumptions, risks, and security acceptance criteria. Present the plan in plain language so Captain can make an informed approval decision.
+
 ### Consider Data Integrity and Performance
 
 Avoid obvious problems such as:

@@ -47,14 +47,17 @@ describe('initCommand', () => {
     expect(fs.existsSync(path.join(agentsDir, 'implementer.toml'))).toBe(true);
   });
 
-  it('is a no-op when config already exists', () => {
+  it('repairs missing support files when config already exists without replacing config', () => {
     const harnessDir = path.join(tmpDir, '.largentic');
     fs.mkdirSync(harnessDir, { recursive: true });
     fs.writeFileSync(path.join(harnessDir, 'config.yaml'), 'version: 2\n', 'utf8');
 
     initCommand(tmpDir);
 
-    expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(false);
+    expect(fs.readFileSync(path.join(harnessDir, 'config.yaml'), 'utf8')).toBe('version: 2\n');
+    expect(fs.existsSync(path.join(tmpDir, '.largentic', 'runs'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.largentic', '.gitignore'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(true);
   });
 
   it('uses an explicitly requested profile for config and generated Codex files', () => {

@@ -96,8 +96,8 @@ describe('state-machine', () => {
       expect(getNextStageStatus('testing', 'success')).toBe('reviewing');
     });
 
-    it('reviewing success → approved', () => {
-      expect(getNextStageStatus('reviewing', 'success')).toBe('approved');
+    it('reviewing success → awaiting final approval', () => {
+      expect(getNextStageStatus('reviewing', 'success')).toBe('awaiting_review_approval');
     });
 
     it('testing failure → testing_failed', () => {
