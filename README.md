@@ -167,6 +167,22 @@ workflow:
   plan_export_directory: .largentic/exports
 ```
 
+### Updating project configuration
+
+Edit `.largentic/config.yaml` when a project needs to change workflow behavior, select a profile, or override an agent setting. The comments in the generated file describe each supported setting. Keep `version: 2`, use only keys defined in `schemas/config.schema.json`, and validate changes before a run:
+
+```bash
+lh config validate
+lh config show
+lh doctor
+```
+
+Use `workflow.plan_approval: required` to require Captain approval before implementation; this is the recommended setting. Set `workflow.review_approval: required` when Captain must also approve the final review. `workflow.max_attempts` accepts values from 1 through 10, and `workflow.plan_export_directory` is a project-relative directory for exported plans.
+
+To change Codex guidance, edit the active `.codex/global-rules.md` or use a local profile. For reusable changes, update the appropriate source rule under `profiles/` and preview the result with `lh profile diff <id>`. Then run `lh profile apply <id>` (or `lh profile refresh` for unmodified generated files). These commands preserve developer-edited files unless `--force` is explicitly supplied.
+
+Configuration changes do not grant agents permission to install or update packages. Dependency, plugin, runtime, and lockfile changes still require Captain's explicit prior approval.
+
 ## Profiles and migration
 
 Built-in profiles are `generic` and `laravel`; both inherit universal safety

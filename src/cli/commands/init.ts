@@ -13,12 +13,17 @@ version: 2
 profile: PROFILE_PLACEHOLDER
 
 workflow:
+  # Stop after this many implementation/test/review attempts (1-10).
   max_attempts: 3
+  # Keep required to have Captain approve every plan before implementation.
   plan_approval: required     # required | automatic
+  # Set required when Captain must also approve the final review.
   review_approval: automatic  # required | automatic
-  plan_export_directory: .largentic/exports  # directory for exported plan.md files
+  # Relative to the project root; must be a directory used for exported plans.
+  plan_export_directory: .largentic/exports
 
 agents:
+  # Override a stage only when a project needs a different provider or effort.
   planner:
     provider: codex
     reasoning: high
@@ -33,7 +38,7 @@ agents:
     reasoning: high
 
 quality_gates:
-  # Reserved for a future release; not enforced by V2 runtime yet.
+  # Reserved for a future release; these values are not enforced by V2 runtime yet.
   require_tests: true
   require_clean_secrets_scan: true
   max_changed_files: 25
