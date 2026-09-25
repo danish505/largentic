@@ -13,8 +13,7 @@ Largentic V2 stores configuration in `.largentic/`, creates an isolated run dire
 - Node.js 20 or newer
 - npm
 - Git
-- Codex CLI for production runs
-- PHP and Composer when working on Laravel projects
+- Codex CLI
 
 ## Installation
 
